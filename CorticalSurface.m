@@ -36,30 +36,62 @@ ClearAll[Azimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
          SurfaceSelect, ToField, WithField, WithFilter];
 
 (*
-Faces::usage = "Faces[surf] yields a list of all faces in the surface surf, if any, as lists of indices into Vertices[surf].";
-Longitude::usage = "Longitude is a keyword that represents the longitude (identical to azimuth angle) in spherical coordinates.";
+Faces::usage = "Faces[surf] yields a list of all faces in the surface surf, if any, as lists of
+ indices into Vertices[surf].";
+Longitude::usage = "Longitude is a keyword that represents the longitude (identical to azimuth
+ angle) in spherical coordinates.";
 Latitude::usage = "Latitude is a keyword that represents the latitude in spherical coordinates.";
-Radius::usage = "Radius is a keyword that represents the radius of a surface-to-map projection (see SurfaceProjection).";
-Vertices::usage = "Vertices[surf] yields a list of all vertices associated with cortical surface surf in cartesian coordinates.  Vertices[surf, rep] yields a list of all vertices associated with cortical surface surf in the coordinate representation given by rep; rep can be in any format accepted by ConvertCoordinates.";
+Radius::usage = "Radius is a keyword that represents the radius of a surface-to-map projection (see
+ SurfaceProjection).";
+Vertices::usage = "Vertices[surf] yields a list of all vertices associated with cortical surface
+ surf in cartesian coordinates.  Vertices[surf, rep] yields a list of all vertices associated with
+ cortical surface surf in the coordinate representation given by rep; rep can be in any format
+ accepted by ConvertCoordinates.";
 *)
 
-CartesianToSpherical::usage = "CartesianToSpherical[data] yields an equivalent dataset to data except that the parts of data corresponding to (x,y,z) coordinates are replaced with (\[Theta],\[Phi]) coordinates. The data parameter must be a list of either lists or rules OR a single list or a single rule. In data is a list of lists, then the first three elements of each sublist is taken to be the (x,y,z) part; if data is a list of rules or a rule, then the first element of the rule is taken to be the (x,y,z) part. CartesianToSpherical yields data in the same format as it is given, but with the appropriate replacements."
+CartesianToSpherical::usage = "CartesianToSpherical[data] yields an equivalent dataset to data
+ except that the parts of data corresponding to (x,y,z) coordinates are replaced with
+ (\[Theta],\[Phi]) coordinates. The data parameter must be a list of either lists or rules OR a
+ single list or a single rule. In data is a list of lists, then the first three elements of each
+ sublist is taken to be the (x,y,z) part; if data is a list of rules or a rule, then the first
+ element of the rule is taken to be the (x,y,z) part. CartesianToSpherical yields data in the same
+ format as it is given, but with the appropriate replacements."
 CartesianToSpherical::badfmt = "Bad data format given to CartesianToSpherical";
 CartesianToSphercial::badopt = "Bad option `1` given to CartesianToSpherical: `2`";
 
-SphericalToCartesian::usage = "SphericalToCartesian is identical to CartesianToSpherical, but performs the inverse transform."
+SphericalToCartesian::usage = "SphericalToCartesian is identical to CartesianToSpherical, but
+ performs the inverse transform."
 SphericalToCartesian::badfmt = "Bad data format given to SphericalToCartesian";
 SphercialToCartesian::badopt = "Bad option `1` given to SphericalToCartesian: `2`";
 
-SphericalCoordinateStyle::usage = "SphericalCoordinateStyle is an option for functions such as CorticalSurface that accept spherical coordinates. SphericalCoordinateStyle describes coordinates of the form {a, b} such that a SphericalCoordinateStyle value of {x, y} indicates that a represents measurement x and b represents measurement y. The possible measurements are Azimuth/Longitude (which are identical), Latitude, and PolarAngle. At least one of x and y must be Azimuth or Longitude and one of them must be either Latitude or PolarAngle. The ConvertCoordinates function can be used to convert between representations.";
-PolarAngle::usage = "PolarAngle is a keyword that either represents polar angle data of the visual field or the angle from the pole (z-axis) in spherical coordinate data.";
-Azimuth::usage = "Azimuth is a keyword that represents the azimuth angle (identical to longitude) in spherical coordinates.";
+SphericalCoordinateStyle::usage = "SphericalCoordinateStyle is an option for functions such as
+ CorticalSurface that accept spherical coordinates. SphericalCoordinateStyle describes coordinates
+ of the form {a, b} such that a SphericalCoordinateStyle value of {x, y} indicates that a represents
+ measurement x and b represents measurement y. The possible measurements are Azimuth/Longitude
+ (which are identical), Latitude, and PolarAngle. At least one of x and y must be Azimuth or
+ Longitude and one of them must be either Latitude or PolarAngle. The ConvertCoordinates function
+ can be used to convert between representations.";
+PolarAngle::usage = "PolarAngle is a keyword that either represents polar angle data of the visual
+ field or the angle from the pole (z-axis) in spherical coordinate data.";
+Azimuth::usage = "Azimuth is a keyword that represents the azimuth angle (identical to longitude)
+ in spherical coordinates.";
 
-ConvertCoordinates::usage = "ConvertCoordinates[data, fromStyle -> toStyle] yields a transformation of data such that its coordinates are converted from fromStyle to toStyle; fromStyle and toStyle may be Cartesian or any argument appropriate for SphericalCoordinateStyle. The data parameter may be a list of points or a list of rules whose heads are points.";
+ConvertCoordinates::usage = "ConvertCoordinates[data, fromStyle -> toStyle] yields a transformation
+ of data such that its coordinates are converted from fromStyle to toStyle; fromStyle and toStyle
+ may be Cartesian or any argument appropriate for SphericalCoordinateStyle. The data parameter may
+ be a list of points or a list of rules whose heads are points.";
 ConvertCoordinates::badfmt = "Bad input to ConvertCoordinates: `1`";
 
-CorticalSurface::usage = "CorticalSurface[data] yields a cortical surface representation of the cortical surface data given in data. The cortical surface data must be a list of rules, which may be in spherical or cartesian coordinates. If the data is in spherical coordinates, then the SphericalCoordinateStyle option specifies how the coordinates should be interpreted; if the coordinates for each point are {a, b}, then the SphericalCoordinateStyle option specifies {a-style, b-style} where each of a-style and b-style must come from these lists and must not come from the same list: {Azimuth, Longitude} and {Latitude, PolarAngle}. See ?SphericalCoordinateStyle for more information.
-The cortical surface representation yielded by this function is actually a symbol with many tagged values. These each have their own additional documentation and are listed here:
+CorticalSurface::usage = "CorticalSurface[data] yields a cortical surface representation of the
+ cortical surface data given in data. The cortical surface data must be a list of rules, which may
+ be in spherical or cartesian coordinates. If the data is in spherical coordinates, then the
+ SphericalCoordinateStyle option specifies how the coordinates should be interpreted; if the
+ coordinates for each point are {a, b}, then the SphericalCoordinateStyle option specifies {a-style,
+ b-style} where each of a-style and b-style must come from these lists and must not come from the
+ same list: {Azimuth, Longitude} and {Latitude, PolarAngle}. See ?SphericalCoordinateStyle for more
+ information.
+The cortical surface representation yielded by this function is actually a symbol with many tagged
+ values. These each have their own additional documentation and are listed here:
   Vertices[surf],
   Faces[surf]
   Field[surf],
@@ -68,61 +100,118 @@ The cortical surface representation yielded by this function is actually a symbo
   Filter[surf]";
 CorticalSurface::badarg = "Bad argument `1` to CorticalSurface: `2`";
 
-CorticalSurfaceFromVTK::usage = "CorticalSurfaceFromVTK[filename] yields a cortical surface representation of the cortical surface data given in the VTK file specified; see CorticalSurface and ReadVTK for more information.";
+CorticalSurfaceFromVTK::usage = "CorticalSurfaceFromVTK[filename] yields a cortical surface
+ representation of the cortical surface data given in the VTK file specified; see CorticalSurface
+ and ReadVTK for more information.";
 
-Filter::usage = "Filter is an option to CorticalSurface and SurfaceProjection; in both cases, it must be a function that takes as arguments a vertex position (in cartesian or map coordinates) and a field value (which may be None). Only those vertices for which the filter function yields True are included in the constructed object. In the case of maps, vertices that are filtered are still included in the domain, but not in the result. Filter[surface] and Filter[map] yield the surface or map's filter.";
-Polygons::usage = "Polygons[surf] yields a list of all polygons in the surface surf, if any, by cross-referencing Vertices[surf] and Faces[surf]; these polygons are listed in the same order, with the same vertex order, as in Faces[surf].";
-Field::usage = "Field[surf] yields a list of all field values associated with cortical surface surf.";
-FieldQ::usage = "FieldQ[obj] yields true if and only if obj has a field such that Field[obj] yields a list.";
+Filter::usage = "Filter is an option to CorticalSurface and SurfaceProjection; in both cases, it
+ must be a function that takes as arguments a vertex position (in cartesian or map coordinates) and
+ a field value (which may be None). Only those vertices for which the filter function yields True
+ are included in the constructed object. In the case of maps, vertices that are filtered are still
+ included in the domain, but not in the result. Filter[surface] and Filter[map] yield the surface
+ or map's filter.";
+Polygons::usage = "Polygons[surf] yields a list of all polygons in the surface surf, if any, by
+ cross-referencing Vertices[surf] and Faces[surf]; these polygons are listed in the same order, with
+ the same vertex order, as in Faces[surf].";
+Field::usage = "Field[surf] yields a list of all field values associated with cortical surface
+ surf.";
+FieldQ::usage = "FieldQ[obj] yields true if and only if obj has a field such that Field[obj] yields
+ a list.";
 Surface::usage = "Surface[map] yields the surface object from which the map was projected.";
-SurfaceQ::usage = "SurfaceQ[s] yields true if and only if s is a surface object, as created by CorticalSurface[].";
+SurfaceQ::usage = "SurfaceQ[s] yields true if and only if s is a surface object, as created by
+ CorticalSurface[].";
 
-Domain::usage = "Domain[map] yields the Normal of the section of the surface from which map was derived.";
-DomainIndices::usage = "DomainIndices[map] yields a list of the indices into Normal[Surface[map]] for the points that compose the domain of map.";
-ProjectionDispatch::usage = "ProjectionDispatch[map] yields a dispatch list (ie, for use with Replace and /.) that, when given a cartesian point on a surface projects it to the map.";
+Domain::usage = "Domain[map] yields the Normal of the section of the surface from which map was
+ derived.";
+DomainIndices::usage = "DomainIndices[map] yields a list of the indices into Normal[Surface[map]]
+ for the points that compose the domain of map.";
+ProjectionDispatch::usage = "ProjectionDispatch[map] yields a dispatch list (ie, for use with
+ Replace and /.) that, when given a cartesian point on a surface projects it to the map.";
 ProjectionShear::usage = "ProjectionShear[map] yields the shearing matrix associated with map.";
-ProjectionRotation::usage = "ProjectionRotation[map] yields the rotation matrix associated with map.";
-ProjectionTransform::usage = "ProjectionTransform[map] yields a function that converts cartesian coordinates into map coordinates for the projection that creates map.";
-InverseProjectionDispatch::usage = "InverseDispatch[map] yields the dispatch function that, when used to replace something, inverses the transformation from the surface to the map.";
-InverseProjectionTransform::usage = "InverseProjectionTransform[map] yields a function that inverts the transform from map's surface to map."
+ProjectionRotation::usage = "ProjectionRotation[map] yields the rotation matrix associated with
+ map.";
+ProjectionTransform::usage = "ProjectionTransform[map] yields a function that converts cartesian
+ coordinates into map coordinates for the projection that creates map.";
+InverseProjectionDispatch::usage = "InverseDispatch[map] yields the dispatch function that, when
+ used to replace something, inverses the transformation from the surface to the map.";
+InverseProjectionTransform::usage = "InverseProjectionTransform[map] yields a function that inverts
+ the transform from map's surface to map."
 MapQ::usage = "MapQ[x] yields true if and only if x is a map created as a projection of a surface.";
 
-MergeSurfaces::usage = "MergeSurfaces[s1, s2, f] yields a surface object such that any point p appearing in either s1 or s2 is represented in the new surface and has field value equal to f[f1, f2] where f1 and f2 are the field values at p in surface s1 and s2 respectively (or None if no field is defined at that point).";
+MergeSurfaces::usage = "MergeSurfaces[s1, s2, f] yields a surface object such that any point p
+ appearing in either s1 or s2 is represented in the new surface and has field value equal to
+ f[f1, f2] where f1 and f2 are the field values at p in surface s1 and s2 respectively (or None if
+ no field is defined at that point).";
 MergeSurfaces::dup = "Surface given to MergeSurfaces has duplicate vertices";
 
-SurfaceProjection::usage = "SurfaceProjection[surf] yields a surface projection of the region within Pi/3 radians of the occipital pole, with V1 oriented along the positive x-axis. To alter the location of the map projection constructed, the following options may be used:
-  Duplicate may be a surface projection whose projection should be duplicated (other arguments overwrite this argument).
+SurfaceProjection::usage = "SurfaceProjection[surf] yields a surface projection of the region within
+ Pi/3 radians of the occipital pole, with V1 oriented along the positive x-axis. To alter the
+ location of the map projection constructed, the following options may be used:
+  Duplicate may be a surface projection whose projection should be duplicated (other arguments
+    overwrite this argument).
   Center must be a 3D cartesian point representing the center of the map to be constructed.
-  Radius must be a number greater than 0 that indicates the distance from the center that the map should encompass.
-  OrientPoint must be a point or a point -> an angle (which be default is 0) to use in orienting the map; the point is oriented so that it lies at the given angle in a polar-coordinate version of the map (i.e., x -> Pi/4 indicates that point x should, in the resulting map, lie on the y-axis).
+  Radius must be a number greater than 0 that indicates the distance from the center that the map
+    should encompass.
+  OrientPoint must be a point or a point -> an angle (which be default is 0) to use in orienting the
+    map; the point is oriented so that it lies at the given angle in a polar-coordinate version of
+    the map (i.e., x -> Pi/4 indicates that point x should, in the resulting map, lie on the
+    y-axis).
   ProjectionShear must be a shear matrix that is applied to the final map after orientation.";
 SurfaceProjection::badarg = "Bad argument `1` to SurfaceProjection: `2`";
 SurfaceProjection::badfmt = "Transform argument given in unrecognized format";
 SurfaceRotation::usage = "SurfaceRotation[map] yields the rotation matrix that produces the map.";
 
-OrientPoint::usage = "OrientPoint is a keyword that represents the ultimate orientation of a surface-to-map projection (see SurfaceProjection). OrientPoint -> (x -> 0) is identical to OrientPoint -> x; otherwise, OrientPoint -> (x -> y) ensures that in the final map projection, the point x will be projected to point {qx,qy} such that the ArcTan[qx, qy] == y.";
-OrientMatrix::usage = "OrientMatrix[map] yields the orientation matrix applied to the transformation that produced the surface projection, map.";
-Duplicate::usage = "Duplicate is an option to SurfaceProjection which specifies that the projection should, unless otherwise specified in the options list, use the transformation arguments used by the given map.";
+OrientPoint::usage = "OrientPoint is a keyword that represents the ultimate orientation of a
+ surface-to-map projection (see SurfaceProjection). OrientPoint -> (x -> 0) is identical to
+ OrientPoint -> x; otherwise, OrientPoint -> (x -> y) ensures that in the final map projection, the
+ point x will be projected to point {qx,qy} such that the ArcTan[qx, qy] == y.";
+OrientMatrix::usage = "OrientMatrix[map] yields the orientation matrix applied to the transformation
+ that produced the surface projection, map.";
+Duplicate::usage = "Duplicate is an option to SurfaceProjection which specifies that the projection
+ should, unless otherwise specified in the options list, use the transformation arguments used by
+ the given map.";
 
-MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[] may be given.";
+MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[]
+ may be given.";
 
-WithFilter::usage = "WithFilter[map, filt] and WithFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
-WithField::usage = "WithField[surf, field] yields a surface object that is identical to surf except that its field has been replaced with the given field. Rule (field -> surf) may be used as a shorthand for WithField[surf, field].";
+WithFilter::usage = "WithFilter[map, filt] and WithFilter[surf, filt] yield a map or surface object
+ that is identical to map or surf except that it has an additional filter applied to it.";
+WithField::usage = "WithField[surf, field] yields a surface object that is identical to surf except
+ that its field has been replaced with the given field. Rule (field -> surf) may be used as a
+ shorthand for WithField[surf, field].";
 WithField::incompat = "WithField given surface and field with a different numbers of vertices.";
 
 ToField::usage = "ToField[list] yields a version of list that can be passed as a field.";
 
-ReadVTK::usage = "ReadVTK[filename] reads the given VTK file, including fields, and yields a list of rules, {x,y,z} -> field. The filename may be a URL.";
+ReadVTK::usage = "ReadVTK[filename] reads the given VTK file, including fields, and yields a list
+ of rules, {x,y,z} -> field. The filename may be a URL.";
 ReadVTK::nofile = "No such file: `1`";
 ReadVTK::flerr = "Unspecified error while reading file: `1`";
 
-SurfacePlot::usage = "SurfacePlot[surf] yields a plot of the surface object surf. All options available to Graphics3D may be given,";
-SurfaceSelect::usage = "SurfaceSelect[surf, fn] yields a surface object which consists of a subset of the surface surf containing nodes U for which fn[u -> f[u]] yields true for all u in U and where f[u] is the field value of vertex u.";
-SurfaceCases::usage =  "SurfaceCases[surf, form] yields a surface object which consists of a subset of the surface surf containing nodes U for which u -> f[u] matches form for all u in U and where f[u] is the field value of vertex u.";
-SurfaceMap::usage = "SurfaceMap[fn, surf] yields a new surface equal to the surface surf but with the new surface's vertex/field values determined by fn[u -> f[u]] where u is in Vertices[surf] and f[u] is the field of vertex u. SurfaceMap[fn, {surf1, surf2...}] is like SurfaceMap[fn, surfn] but calls fn with the vertex to field rules of all the given surfaces.";
-SurfaceReplace::usage = "SurfaceReplace[surf, rules] yields a new surface identical to the surface surf after having each vertex -> field element of the surface replaced by the list of rules.";
+SurfacePlot::usage = "SurfacePlot[surf] yields a plot of the surface object surf. All options
+ available to Graphics3D may be given,";
+SurfaceSelect::usage = "SurfaceSelect[surf, fn] yields a surface object which consists of a subset
+ of the surface surf containing nodes U for which fn[u -> f[u]] yields true for all u in U and where
+ f[u] is the field value of vertex u.";
+SurfaceCases::usage =  "SurfaceCases[surf, form] yields a surface object which consists of a subset
+ of the surface surf containing nodes U for which u -> f[u] matches form for all u in U and where
+ f[u] is the field value of vertex u.";
+SurfaceMap::usage = "SurfaceMap[fn, surf] yields a new surface equal to the surface surf but with
+ the new surface's vertex/field values determined by fn[u -> f[u]] where u is in Vertices[surf] and
+ f[u] is the field of vertex u. SurfaceMap[fn, {surf1, surf2...}] is like SurfaceMap[fn, surfn] but
+ calls fn with the vertex to field rules of all the given surfaces.";
+SurfaceReplace::usage = "SurfaceReplace[surf, rules] yields a new surface identical to the surface
+ surf after having each vertex -> field element of the surface replaced by the list of rules.";
 
-SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but such that the field of the surface has been resampled from surf1. All options except the Field option of CorticalSurface are accepted and passed verbatim; a Method option may also specify Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for their respective functions. In the latter two cases, A list may be given instead of the argument such that the first argument is Interpolation or LitInterpolation and the remaining elements of the list are options to pass to these functions; e.g. Method -> {Interpolation, InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2] but self-hashes.";
+SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but
+ such that the field of the surface has been resampled from surf1. All options except the Field
+ option of CorticalSurface are accepted and passed verbatim; a Method option may also specify
+ Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for
+ their respective functions. In the latter two cases, A list may be given instead of the argument
+ such that the first argument is Interpolation or LitInterpolation and the remaining elements of
+ the list are options to pass to these functions; e.g. Method -> {Interpolation, 
+ InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2]
+ but self-hashes.";
 
 (**************************************************************************************************)
 Begin["`Private`"];

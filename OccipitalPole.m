@@ -13,42 +13,42 @@ BeginPackage["OccipitalPole`", {"CorticalSurface`", "FreeSurfer`", "Computationa
 
 Unprotect[FSAverageV1Mask, FSAverageSymV1Mask, FSAverageV1, FSAverageSymV1];
 ClearAll[FSAverageV1Mask, FSAverageSymV1Mask, FSAverageV1, FSAverageSymV1];
-FSAVerageMask::usage = "FSAverageV1[hemi] is a lazily-loaded label object of the points in the"
-    <> " fsaverage V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from the"
-    <> " fsaverage subject, so that must be set appropriately (in the FreeSurfer package).";
-FSAVerageSymMask::usage = "FSAverageSymV1 is a lazily-loaded label object of the points in the"
-    <> " fsaverage_sym V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from"
-    <> " the fsaverage_sym subject, so that must be set appropriately (in the FreeSurfer package).";
-FSAVerageV1::usage = "FSAverageV1[hemi] is a lazily-loaded list of vertex indices of those points"
-    <> " in the fsaverage V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from"
-    <> " the fsaverage subject, so that must be set appropriately (in the FreeSurfer package). Note"
-    <> " that the hull is determined for the surface projection in which the occipital pole is the"
-    <> " center of the projection; indices are given, and the final and first indices are the"
-    <> " same.";
-FSAVerageSymV1::usage = "FSAverageSymV1 is a lazily-loaded list of vertex indices of those points"
-    <> " in the fsaverage_sym V1, according to Hinds et al. (2008) NeuroImage. This data is loaded"
-    <> " from the fsaverage_sym subject, so that must be set appropriately (in the FreeSurfer"
-    <> " package). Note that the hull is determined for the surface projection in which the"
-    <> " occipital pole is the center of the projection; indices are given, and the final and first"
-    <> " indices are the same.";
+FSAVerageMask::usage = "FSAverageV1[hemi] is a lazily-loaded label object of the points in the
+ fsaverage V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from the
+ fsaverage subject, so that must be set appropriately (in the FreeSurfer package).";
+FSAVerageSymMask::usage = "FSAverageSymV1 is a lazily-loaded label object of the points in the
+ fsaverage_sym V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from
+ the fsaverage_sym subject, so that must be set appropriately (in the FreeSurfer package).";
+FSAVerageV1::usage = "FSAverageV1[hemi] is a lazily-loaded list of vertex indices of those points
+ in the fsaverage V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from
+ the fsaverage subject, so that must be set appropriately (in the FreeSurfer package). Note
+ that the hull is determined for the surface projection in which the occipital pole is the
+ center of the projection; indices are given, and the final and first indices are the
+ same.";
+FSAVerageSymV1::usage = "FSAverageSymV1 is a lazily-loaded list of vertex indices of those points
+ in the fsaverage_sym V1, according to Hinds et al. (2008) NeuroImage. This data is loaded
+ from the fsaverage_sym subject, so that must be set appropriately (in the FreeSurfer
+ package). Note that the hull is determined for the surface projection in which the
+ occipital pole is the center of the projection; indices are given, and the final and first
+ indices are the same.";
 
 Unprotect[FSAverageV1Hull, FSAverageSymV1Hull];
 ClearAll[FSAverageV1Hull, FSAverageSymV1Hull];
-FSAverageV1Hull::usage = "$FSAverageV1Hull[hemi] is the list of polygons in the convex hull of"
-    <> " $FSAverageV1 (with the first polygon appended so that ListPlot or Lines will produce a"
-    <> " correct polygon).";
-FSAverageSymV1Hull::usage = "$FSAverageSymV1Hull is the list of polygons in the convex hull of"
-    <> " $FSAverageSymV1 (with the first polygon appended so that ListPlot or Lines will produce"
-    <> " a correct polygon).";
+FSAverageV1Hull::usage = "$FSAverageV1Hull[hemi] is the list of polygons in the convex hull of
+ $FSAverageV1 (with the first polygon appended so that ListPlot or Lines will produce a
+ correct polygon).";
+FSAverageSymV1Hull::usage = "$FSAverageSymV1Hull is the list of polygons in the convex hull of
+ $FSAverageSymV1 (with the first polygon appended so that ListPlot or Lines will produce
+ a correct polygon).";
 
 Unprotect[FSAverageOP, FSAverageSymOP];
 ClearAll[FSAverageOP, FSAverageSymOP];
-FSAverageOP::usage = "$FSAverageOP[hemi] is the (lazily-evaluated) index of the vertex in the"
-    <> " occipital cortex (spherical hemisphere) that corresponds roughly to the tip of the"
-    <> " occipital pole in the fsaverage.";
-FSAverageSymOP::usage = "$FSAverageSymOP is the (lazily-evaluated) index of the vertex in the"
-    <> " occipital cortex that corresponds roughly to the tip of the occipital pole in the"
-    <> " fsaverage_sym brain.";
+FSAverageOP::usage = "$FSAverageOP[hemi] is the (lazily-evaluated) index of the vertex in the
+ occipital cortex (spherical hemisphere) that corresponds roughly to the tip of the
+ occipital pole in the fsaverage.";
+FSAverageSymOP::usage = "$FSAverageSymOP is the (lazily-evaluated) index of the vertex in the
+ occipital cortex that corresponds roughly to the tip of the occipital pole in the
+ fsaverage_sym brain.";
 
 
 (**************************************************************************************************)

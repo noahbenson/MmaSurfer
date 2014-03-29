@@ -16,23 +16,23 @@ ClearAll[ Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Su
           OptionalData, Header, HeaderComment, ImportedData, LookupTable];
 Frames::usage = "Frames[mgh] yields the number of frames in an mgh object.";
 ImageBufferType::usage = "ImageBufferType[mgh] yields the image buffer type for the given mgh object.";
-DegreesOfFreedom::usage = "DegreesOfFreedom[mgh] yields the number of degrees of freedom of the given"
-    <> " mgh object.";
+DegreesOfFreedom::usage = "DegreesOfFreedom[mgh] yields the number of degrees of freedom of the given
+ mgh object.";
 VOXToRASMatrix::usage = "VOXToRASMatrix[mgh] yields the vox2ras matrix of the given mgh object.";
 Volumes::usage = "Volumes[mgh] yields the array of 3D images in the given mgh object.";
 Surfaces::usage = "Surfaces[mgh] yields the surface data of the given mgh object.";
-OptionalData::usage = "OptionalData[mgh] yields a list of the optional data encoded in the file"
-    <> " from which the mgh object was read.  OptionalData[mgh, name] yields the value of the"
-    <> " optional datum, if stored in the file, with the given name, or None if no such datum was"
-    <> " stored in the file.";
-Header::usage = "Header[obj] yields the header data from certain FreeSurfer objects that have been"
-    <> " imported.";
-HeaderComment::usage = "HeaderComment[object] yields the header comment associated with reading in"
-    <> " some objects.";
-ImportedData::usage = "ImportedData[object] yields the raw data that was imported for object, if"
-    <> " applicable.";
-LookupTable::usage = "LookupTable[object] yields the color/label lookup table for an annotation"
-    <> " object.";
+OptionalData::usage = "OptionalData[mgh] yields a list of the optional data encoded in the file
+ from which the mgh object was read.  OptionalData[mgh, name] yields the value of the
+ optional datum, if stored in the file, with the given name, or None if no such datum was
+ stored in the file.";
+Header::usage = "Header[obj] yields the header data from certain FreeSurfer objects that have been
+ imported.";
+HeaderComment::usage = "HeaderComment[object] yields the header comment associated with reading in
+ some objects.";
+ImportedData::usage = "ImportedData[object] yields the raw data that was imported for object, if
+ applicable.";
+LookupTable::usage = "LookupTable[object] yields the color/label lookup table for an annotation
+ object.";
 Protect[  Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Surfaces, OptionalData,
           Header, HeaderComment, ImportedData];
 
@@ -40,18 +40,18 @@ Unprotect[ImportMGH, ImportSurface, ImportCurv, ImportWeights, ImportAnnotation,
           AnnotationQ, MGHObjectFromData, MGHQ];
 ClearAll[ ImportMGH, ImportSurface, ImportCurv, ImportWeights, ImportAnnotation, ImportLabel, 
           AnnotationQ, MGHObjectFromData, MGHQ];
-ImportMGH::usage = "ImportMGH[filename, options...] is identical to Import[filename, \"MGH\","
-    <> " options].";
-ImportSurface::usage = "ImportSurface[filename, options...] is identical to Import[filename,"
-    <> " \"FreeSurferSurface\", options].";
-ImportCurc::usage = "ImportCurv[filename, options...] is identical to Import[filename,"
-    <> " \"FreeSurferCurv\", options].";
-ImportWeights::usage = "ImportWeights[filename, options...] is identical to Import[filename,"
-    <> " \"FreeSurferWeights\", options].";
-ImportAnnotation::usage = "ImportAnnotation[filename, options...] is identical to Import[filename,"
-    <> " \"FreeSurferAnnotation\", options].";
-ImportLabel::usage = "ImportLabel[filename, options...] is identical to Import[filename, "
-    <> "\"FreeSurferLabel\", options].";
+ImportMGH::usage = "ImportMGH[filename, options...] is identical to Import[filename, \"MGH\",
+ options].";
+ImportSurface::usage = "ImportSurface[filename, options...] is identical to Import[filename,
+ \"FreeSurferSurface\", options].";
+ImportCurc::usage = "ImportCurv[filename, options...] is identical to Import[filename,
+ \"FreeSurferCurv\", options].";
+ImportWeights::usage = "ImportWeights[filename, options...] is identical to Import[filename,
+ \"FreeSurferWeights\", options].";
+ImportAnnotation::usage = "ImportAnnotation[filename, options...] is identical to Import[filename,
+ \"FreeSurferAnnotation\", options].";
+ImportLabel::usage = "ImportLabel[filename, options...] is identical to Import[filename, 
+\"FreeSurferLabel\", options].";
 ImportMGH::badfmt = "Bad format when reading `1`: `2`";
 ImportMGH::version = "ImportMGH expects a version 1 file; this file is version `1`";
 ImportMGH::wrongtype = "MGH object appears to be a `1` type, but `2` type requested.";
@@ -61,46 +61,46 @@ ImportCurv::badfmt = "Bad format when importing curv `1`: `2`";
 ImportWeights::badfmt = "Bad format when importing weights `1`: `2`";
 ImportAnnotation::badfmt = "Bad format when importing annotation `1`: `2`";
 ImportAnnotation::warning = "Warning from ImportAnnotation: `1`";
-MGHObjectFromData::usage = "MGHObjectFromData[data] yields an MGH object from the data (ie obtained"
-    <> " via Import[... {\"MGH\", \"Data\"}]).";
+MGHObjectFromData::usage = "MGHObjectFromData[data] yields an MGH object from the data (ie obtained
+ via Import[... {\"MGH\", \"Data\"}]).";
 MGHObjectFromData::badfmt = "Bad data format given to MGHObjectFromData: `1`";
 MGHQ::usage = "MGHQ[obj] yields true if and only if obj is an MGH object.";
 AnnotationQ::usage = "AnnotationQ[obj] yields true if and only if obj is an Annotation object.";
 
 Unprotect[ExportMGH, ExportSurface, ExportWeights, ExportCurv, ExportAnnotation, ExportLabel];
 ClearAll[ ExportMGH, ExportSurface, ExportWeights, ExportCurv, ExportAnnotation, ExportLabel];
-ExportMGH::usage = "ExportMGH[filename, data, options...] is equivalent to Export[filename, data,"
-    <> " \"MGH\", options].";
-ExportSurface::usage = "ExportSurface[filename, data, options...] is equivalent to Export[filename,"
-    <> " data, \"FreeSurferSurface\", options].";
-ExportWeights::usage = "ExportWeights[filename, data, options...] is equivalent to Export[filename,"
-    <> " data, \"FreeSurferWeights\", options].";
-ExportCurv::usage = "ExportCurv[filename, data, options...] is equivalent to Export[filename, data,"
-    <> " \"FreeSurferCurv\", options].";
-ExportAnnotation::usage = "ExportAnnotation[filename, data, options...] is equivalent to"
-    <> " Export[filename, data, \"FreeSurferAnnotation\", options].";
-ExportLabel::usage = "ExportLabel[filename, data, options...] is identical to Export[filename,"
-    <> " data, \"FreeSurferLabel\", options].";
+ExportMGH::usage = "ExportMGH[filename, data, options...] is equivalent to Export[filename, data,
+ \"MGH\", options].";
+ExportSurface::usage = "ExportSurface[filename, data, options...] is equivalent to Export[filename,
+ data, \"FreeSurferSurface\", options].";
+ExportWeights::usage = "ExportWeights[filename, data, options...] is equivalent to Export[filename,
+ data, \"FreeSurferWeights\", options].";
+ExportCurv::usage = "ExportCurv[filename, data, options...] is equivalent to Export[filename, data,
+ \"FreeSurferCurv\", options].";
+ExportAnnotation::usage = "ExportAnnotation[filename, data, options...] is equivalent to
+ Export[filename, data, \"FreeSurferAnnotation\", options].";
+ExportLabel::usage = "ExportLabel[filename, data, options...] is identical to Export[filename,
+ data, \"FreeSurferLabel\", options].";
 ExportLabel::badfmt = "ExportLabel given data not in the form of {vertexID -> {p, {R, A, S}} ...}";
 
 Unprotect[$MGHHeaderSize, $MGHOptionalData];
 ClearAll[ $MGHHeaderSize, $MGHOptionalData];
 $MGHHeaderSize::usage = "$MGHHeaderSize is the number of bytes in the header of an MGH file.";
-$MGHOptionalData::usage = "$MGHOptionalData is a list of the optional pieces of data that may be"
-    <> " stored at the end of an MGH file.";
+$MGHOptionalData::usage = "$MGHOptionalData is a list of the optional pieces of data that may be
+ stored at the end of an MGH file.";
 
 Unprotect[$FreeSurferHomes, $SubjectsDirs, $Subjects, $FreeSurferColorLUT];
 ClearAll[ $FreeSurferHomes, $SubjectsDirs, $Subjects, $FreeSurferColorLUT];
-$SubjectsDirs::usage = "$SubjectsDirs is a list of potential FreeSurfer subjects directories; it is"
-    <> " obtained at runtime from the $SUBJECTS_DIR environment variable as well as by scanning"
-    <> " common FreeSurfer paths.";
-$Subjects::usage = "$Subjects is a list of potential FreeSurfer subjects (named by their"
-    <> " directories). If you wish to add an arbitrary subject to FreeSurfer, use AddSubject.";
-$FreeSurferHomes::usage = "$FreeSurferHomes is a list of potential home directories for FreeSurfer."
-    <> " Homes may be added with AddFreeSurferHome.";
-$FreeSurferColorLUT::usage = "$FreeSurferColorLUT is a dispatch table that will replace either an"
-    <> " integer or string volume label and yield the remaining data (i.e., a list of the string or"
-    <> " integer label, whichever was not given, and a color.";
+$SubjectsDirs::usage = "$SubjectsDirs is a list of potential FreeSurfer subjects directories; it is
+ obtained at runtime from the $SUBJECTS_DIR environment variable as well as by scanning
+ common FreeSurfer paths.";
+$Subjects::usage = "$Subjects is a list of potential FreeSurfer subjects (named by their
+ directories). If you wish to add an arbitrary subject to FreeSurfer, use AddSubject.";
+$FreeSurferHomes::usage = "$FreeSurferHomes is a list of potential home directories for FreeSurfer.
+ Homes may be added with AddFreeSurferHome.";
+$FreeSurferColorLUT::usage = "$FreeSurferColorLUT is a dispatch table that will replace either an
+ integer or string volume label and yield the remaining data (i.e., a list of the string or
+ integer label, whichever was not given, and a color.";
 
 Unprotect[RH, LH, RHX];
 ClearAll[RH, LH, RHX];
@@ -113,66 +113,66 @@ Unprotect[AddFreeSurferHome, RemoveFreeSurferHome, AddSubjectsDir, RemoveSubject
           RemoveSubject];
 ClearAll[ AddFreeSurferHome, RemoveFreeSurferHome, AddSubjectsDir, RemoveSubjectsDir, AddSubject,
           RemoveSubject];
-AddFreeSurferHome::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home"
-    <> " structures.";
-RemoveFreeSurferHome::usage = "RemoveFreeSurferHome[dir] removes the directories matching the"
-    <> " pattern dir from the FreeSurfer subject directories structures.";
-AddSubjectsDir::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home"
-    <> " structures.";
-RemoveSubjectsDir::usage = "RemoveFreeSurferHome[dir] removes the directories matching the pattern"
-    <> " dir from the FreeSurfer subject directories structures.";
+AddFreeSurferHome::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home
+ structures.";
+RemoveFreeSurferHome::usage = "RemoveFreeSurferHome[dir] removes the directories matching the
+ pattern dir from the FreeSurfer subject directories structures.";
+AddSubjectsDir::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home
+ structures.";
+RemoveSubjectsDir::usage = "RemoveFreeSurferHome[dir] removes the directories matching the pattern
+ dir from the FreeSurfer subject directories structures.";
 AddSubject::usage = "AddSubject[dir] adds the directory dir to the FreeSurfer subject structures.";
-RemoveSubject::usage = "RemoveSurbject[dir] removes the directories matching the pattern dir from"
-    <> " the FreeSurfer subject structures.";
+RemoveSubject::usage = "RemoveSurbject[dir] removes the directories matching the pattern dir from
+ the FreeSurfer subject structures.";
 
 Unprotect[Subject, SubjectQ];
 ClearAll[Subject, SubjectQ];
-Subject::usage = "Subject[directory] represents a FreeSurfer subject whose data is stored in the"
-    <> " directory named by directory.";
+Subject::usage = "Subject[directory] represents a FreeSurfer subject whose data is stored in the
+ directory named by directory.";
 Subject::notfound = "Subject directory `1` does not seem to exist";
 Subject::baddata = "Subject directory `1` does not seem to contains FreeSurfer data: `2`";
-SubjectQ::usage = "SubjectQ[directory] yields true if and only if directory is a string referring"
-    <> " to a directory that contains a FreeSurfer subject.";
+SubjectQ::usage = "SubjectQ[directory] yields true if and only if directory is a string referring
+ to a directory that contains a FreeSurfer subject.";
 
 (* Volume Functions *)
 Unprotect[SubjectSegments, SubjectSegments, SubjectBrain, SubjectWhiteMatter, SubjectFilledBrain,
           SubjectHemisphere];
 ClearAll[ SubjectSegments, SubjectSegments, SubjectBrain, SubjectWhiteMatter, SubjectFilledBrain,
           SubjectHemisphere];
-SubjectSegments::usage = "SubjectSegments[sub] yields an MGH object for subject sub whose values"
-    <> " correspond to segments of the brain volume.";
-SubjectSegment::usage = "SubjectSegment[sub, label] yeids a list of indices at which the subject's"
-    <> " anatomical volume is labeled with label, which may be an integer or a string, either of"
-    <> " which must be found in the FreeSurferColorLUT.";
+SubjectSegments::usage = "SubjectSegments[sub] yields an MGH object for subject sub whose values
+ correspond to segments of the brain volume.";
+SubjectSegment::usage = "SubjectSegment[sub, label] yeids a list of indices at which the subject's
+ anatomical volume is labeled with label, which may be an integer or a string, either of
+ which must be found in the FreeSurferColorLUT.";
 SubjectSegment::badlbl = "Label given to SubjectSegment not found: `1`";
-SubjectBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's normalized brain"
-    <> " (after skull stripping).";
-SubjectWhiteMatter::usage = "SubjectBrain[sub] yields the volume for the subject sub's white"
-    <> " matter.";
-SubjectFilledBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's brain in"
-    <> " which the right hemisphere white matter has values of Left and the left hemisphere has"
-    <> " values of Right. Note that these can be exported and will translate to FreeSurfer's"
-    <> " specified RH -> 127 and LH -> 255 values.";
-SubjectHemisphere::usage = "SubjectBrain[sub, LH|RH] yields the volume for the subject sub's right"
-    <> " or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
+SubjectBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's normalized brain
+ (after skull stripping).";
+SubjectWhiteMatter::usage = "SubjectBrain[sub] yields the volume for the subject sub's white
+ matter.";
+SubjectFilledBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's brain in
+ which the right hemisphere white matter has values of Left and the left hemisphere has
+ values of Right. Note that these can be exported and will translate to FreeSurfer's
+ specified RH -> 127 and LH -> 255 values.";
+SubjectHemisphere::usage = "SubjectBrain[sub, LH|RH] yields the volume for the subject sub's right
+ or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
 
 (* Surface Functions *)
 Unprotect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
           SubjectRegisteredSurface];
 ClearAll[ SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
           SubjectRegisteredSurface];
-SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical"
-    <> " surface tesselation for subject sub's specified hemishere.";
-SubjectPialSurface::usage = "SubjectPialSurface[sub, hemi] yields the pial surface object for"
-    <> " subject sub's specified hemishere.";
-SubjectInflatedSurface::usage = "SubjectInflatedSurface[sub, hemi] yields the inflated surface"
-    <> " object for subject sub's specified hemishere.";
-SubjectSphereSurface::usage = "SubjectSphereSurface[sub, hemi] yields the spherical surface object"
-    <> " for subject sub's specified hemishere; note that this is not the registration of the"
+SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical
+ surface tesselation for subject sub's specified hemishere.";
+SubjectPialSurface::usage = "SubjectPialSurface[sub, hemi] yields the pial surface object for
+ subject sub's specified hemishere.";
+SubjectInflatedSurface::usage = "SubjectInflatedSurface[sub, hemi] yields the inflated surface
+ object for subject sub's specified hemishere.";
+SubjectSphereSurface::usage = "SubjectSphereSurface[sub, hemi] yields the spherical surface object
+ for subject sub's specified hemishere; note that this is not the registration of the"
     " subject to the FSAverage hemisphere. For that, see SubjectRegisteredSurface..";
-SubjectRegisteredSurface::usage = "SubjectRegisteredSurface[sub, hemi] yields the subject's"
-    <> " cortical surface registered to the spherical fsaverage hemisphere for subject sub's"
-    <> " specified hemishere.";
+SubjectRegisteredSurface::usage = "SubjectRegisteredSurface[sub, hemi] yields the subject's
+ cortical surface registered to the spherical fsaverage hemisphere for subject sub's
+ specified hemishere.";
 
 (* Surface Field Functions *)
 Unprotect[SubjectJacobian, SubjectCurvature, SubjectSulci, SubjectThickness, SubjectVertexArea,
@@ -181,34 +181,34 @@ Unprotect[SubjectJacobian, SubjectCurvature, SubjectSulci, SubjectThickness, Sub
 ClearAll[ SubjectJacobian, SubjectCurvature, SubjectSulci, SubjectThickness, SubjectVertexArea,
           SubjectVertexAreaPial, SubjectVertexAreaWhite, SubjectVolume, SubjectParcellation,
           SubjectParcellation2009, SubjectParcellation2005];
-SubjectJacobian::usage = "SubjectJacobian[sub, hemi] yields the Jacobian field for the subejct"
-    <> " sub's given hemisphere.";
-SubjectCurvature::usage = "SubjectCurvature[sub, hemi] yields the curvature for subject sub's"
-    <> " given hemisphere.";
-SubjectSulci::usage = "SubjectSulci[sub, hemi] yields the sulcal depth for subject sub's given"
-    <> " hemisphere.";
-SubjectThickness::usage = "SubjectThickness[sub, hemi] yields the thickness of each vertex for"
-    <> " subject sub's given hemisphere.";
-SubjectVertexArea::usage = "SubjectVertexArea[sub, hemi] yields the area of each vertex for subject"
-    <> " sub's given hemisphere (?h.mid.area).";
-SubjectVertexAreaPial::usage = "SubjectVertexAreaPial[sub, hemi] yields the pial area of each"
-    <> " vertex for subject sub's given hemisphere (?h.area.pial).";
-SubjectVertexAreaWhite::usage = "SubjectVertexAreaWhite[sub, hemi] yields the white matter area of"
-    <> " each vertex for subject sub's given hemisphere (?h.area.white).";
-SubjectVertexVolume::usage = "SubjectVertexVolume[sub, hemi] yields the volume of each vertex for"
-    <> " subject sub's given hemisphere";
-SubjectParcellation::usage = "SubjectParcellation[sub, hemi] yields the 2009 cortical surface"
-    <> " parcellation for subject sub's given hemisphere.";
-SubjectParcellation2009::usage = "SubjectParcellation[sub, hemi] yields the 2009 cortical surface"
-    <> " parcellation for subject sub's given hemisphere.";
-SubjectParcellation2005::usage = "SubjectParcellation[sub, hemi] yields the 2005 cortical surface"
-    <> " parcellation for subject sub's given hemisphere.";
+SubjectJacobian::usage = "SubjectJacobian[sub, hemi] yields the Jacobian field for the subejct
+ sub's given hemisphere.";
+SubjectCurvature::usage = "SubjectCurvature[sub, hemi] yields the curvature for subject sub's
+ given hemisphere.";
+SubjectSulci::usage = "SubjectSulci[sub, hemi] yields the sulcal depth for subject sub's given
+ hemisphere.";
+SubjectThickness::usage = "SubjectThickness[sub, hemi] yields the thickness of each vertex for
+ subject sub's given hemisphere.";
+SubjectVertexArea::usage = "SubjectVertexArea[sub, hemi] yields the area of each vertex for subject
+ sub's given hemisphere (?h.mid.area).";
+SubjectVertexAreaPial::usage = "SubjectVertexAreaPial[sub, hemi] yields the pial area of each
+ vertex for subject sub's given hemisphere (?h.area.pial).";
+SubjectVertexAreaWhite::usage = "SubjectVertexAreaWhite[sub, hemi] yields the white matter area of
+ each vertex for subject sub's given hemisphere (?h.area.white).";
+SubjectVertexVolume::usage = "SubjectVertexVolume[sub, hemi] yields the volume of each vertex for
+ subject sub's given hemisphere";
+SubjectParcellation::usage = "SubjectParcellation[sub, hemi] yields the 2009 cortical surface
+ parcellation for subject sub's given hemisphere.";
+SubjectParcellation2009::usage = "SubjectParcellation[sub, hemi] yields the 2009 cortical surface
+ parcellation for subject sub's given hemisphere.";
+SubjectParcellation2005::usage = "SubjectParcellation[sub, hemi] yields the 2005 cortical surface
+ parcellation for subject sub's given hemisphere.";
 
 Unprotect[FreeSurfer];
 ClearAll[FreeSurfer];
-FreeSurfer::nolabel = "The FreeSurferColorLUT.txt file could not be found. This file is normally in"
-    <> " your FreeSurfer home directory. Try adding a FreeSurfer home directory (via"
-    <> " AddFreeSurferHome[]) and re-evaluating.";
+FreeSurfer::nolabel = "The FreeSurferColorLUT.txt file could not be found. This file is normally in
+ your FreeSurfer home directory. Try adding a FreeSurfer home directory (via
+ AddFreeSurferHome[]) and re-evaluating.";
 FreeSurfer::notfound = "Data not found: `1`";
 Protect[FreeSurfer];
 
@@ -222,36 +222,36 @@ ClearAll[ FSAverageOriginalSurface, FSAveragePialSurface, FSAverageInflatedSurfa
           FSAverageRegisteredCurvature, FSAverageVertexArea, FSAverageVertexAreaPial, 
           FSAverageVertexAreaWhite, FSAverageVolume, FSAverageParcellation, 
           FSAverageParcellation2009, FSAverageParcellation2005, $FSAverage];
-FSAverageOriginalSurface::usage = "FSAverageOriginalSurface[hemi] yields the fsaverage subject's"
-    <> " original surface.";
-FSAveragePialSurface::usage = "FSAveragePialSurface[hemi] yields the fsaverage subject's pial"
-    <> " surface.";
-FSAverageInflatedSurface::usage = "FSAverageInflatedSurface[hemi] yields the fsaverage subject's"
-    <> " inflated surface.";
-FSAverageSphereSurface::usage = "FSAverageSphereSurface[hemi] yields the fsaverage subject's"
-    <> " spherical surface.";
+FSAverageOriginalSurface::usage = "FSAverageOriginalSurface[hemi] yields the fsaverage subject's
+ original surface.";
+FSAveragePialSurface::usage = "FSAveragePialSurface[hemi] yields the fsaverage subject's pial
+ surface.";
+FSAverageInflatedSurface::usage = "FSAverageInflatedSurface[hemi] yields the fsaverage subject's
+ inflated surface.";
+FSAverageSphereSurface::usage = "FSAverageSphereSurface[hemi] yields the fsaverage subject's
+ spherical surface.";
 FSAverageCurvature::usage = "FSAverageCurvature[hemi] yields the fsaverage subject's curvature.";
 FSAverageSulci::usage = "FSAverageSulci[hemi] yields the fsaverage subject's sulcal depth.";
-FSAverageThickness::usage = "FSAverageThickness[hemi] yields the fsaverage subject's cortical"
-    <> " thickness.";
-FSAverageRegisteredCurvature::usage = "FSAverageRegisteredCurvature[hemi] yields the fsaverage"
-    <> " subject's average curvature.";
-FSAverageVertexArea::usage = "FSAverageVertexArea[hemi] yields the fsaverage subject's vertex areas"
-    <> " (mid.area).";
-FSAverageVertexAreaPial::usage = "FSAverageVertexAreaPial[hemi] yields the fsaverage subject's"
-    <> " vertex areas (area.pial)";
-FSAverageVertexAreaWhite::usage = "FSAverageVertexAreaWhite[hemi] yields the fsaverage subject's"
-    <> " white matter vertex areas (area.white).";
+FSAverageThickness::usage = "FSAverageThickness[hemi] yields the fsaverage subject's cortical
+ thickness.";
+FSAverageRegisteredCurvature::usage = "FSAverageRegisteredCurvature[hemi] yields the fsaverage
+ subject's average curvature.";
+FSAverageVertexArea::usage = "FSAverageVertexArea[hemi] yields the fsaverage subject's vertex areas
+ (mid.area).";
+FSAverageVertexAreaPial::usage = "FSAverageVertexAreaPial[hemi] yields the fsaverage subject's
+ vertex areas (area.pial)";
+FSAverageVertexAreaWhite::usage = "FSAverageVertexAreaWhite[hemi] yields the fsaverage subject's
+ white matter vertex areas (area.white).";
 FSAverageVolume::usage = "FSAverageVolume[hemi] yields the fsaverage subject's vertex volumes.";
-FSAverageParcellation::usage = "FSAverageParcellation[hemi] yields the fsaverage subject's region"
-    <> " parcellations (2009).";
-FSAverageParcellation2009::usage = "FSAverageParcellation2009[hemi] yields the fsaverage subject's"
-    <> " region parcellations (2009).";
-FSAverageParcellation2005::usage = "FSAverageParcellation2005[hemi] yields the fsaverage subject's"
-    <> " region parcellations (2005).";
-$FSAverage::usage = "$FSAverage is the subject directory for the fsaverage FreeSurfer subject. If"
-    <> " you add your freesurfer directory (or it is auto-detected), this will be automatically"
-    <> " discovered (see AddFreeSurferHome, AddFreeSurferSubjectsDir, and AddFreeSurferSubject).";
+FSAverageParcellation::usage = "FSAverageParcellation[hemi] yields the fsaverage subject's region
+ parcellations (2009).";
+FSAverageParcellation2009::usage = "FSAverageParcellation2009[hemi] yields the fsaverage subject's
+ region parcellations (2009).";
+FSAverageParcellation2005::usage = "FSAverageParcellation2005[hemi] yields the fsaverage subject's
+ region parcellations (2005).";
+$FSAverage::usage = "$FSAverage is the subject directory for the fsaverage FreeSurfer subject. If
+ you add your freesurfer directory (or it is auto-detected), this will be automatically
+ discovered (see AddFreeSurferHome, AddFreeSurferSubjectsDir, and AddFreeSurferSubject).";
 
 Unprotect[FSAverageSymOriginalSurface, FSAverageSymPialSurface, FSAverageSymInflatedSurface,
           FSAverageSymSphereSurface, FSAverageSymCurvature, FSAverageSymSulci, 
@@ -265,38 +265,38 @@ ClearAll[ FSAverageSymOriginalSurface, FSAverageSymPialSurface, FSAverageSymInfl
           FSAverageSymVertexAreaPial, FSAverageSymVertexAreaWhite, FSAverageSymVolume, 
           FSAverageSymParcellation, FSAverageSymParcellation2009, FSAverageSymParcellation2005, 
           $FSAverageSym];
-FSAverageSymOriginalSurface::usage = "FSAverageSymOriginalSurface yields the fsaverage_sym"
-    <> " subject's original surface.";
-FSAverageSymPialSurface::usage = "FSAverageSymPialSurface yields the fsaverage_sym subject's pial"
-    <> " surface.";
-FSAverageSymInflatedSurface::usage = "FSAverageSymInflatedSurface yields the fsaverage_sym"
-    <> " subject's inflated surface.";
-FSAverageSymSphereSurface::usage = "FSAverageSymSphereSurface yields the fsaverage_sym subject's"
-    <> " spherical surface.";
-FSAverageSymCurvature::usage = "FSAverageSymCurvature yields the fsaverage_sym subject's"
-    <> " curvature.";
+FSAverageSymOriginalSurface::usage = "FSAverageSymOriginalSurface yields the fsaverage_sym
+ subject's original surface.";
+FSAverageSymPialSurface::usage = "FSAverageSymPialSurface yields the fsaverage_sym subject's pial
+ surface.";
+FSAverageSymInflatedSurface::usage = "FSAverageSymInflatedSurface yields the fsaverage_sym
+ subject's inflated surface.";
+FSAverageSymSphereSurface::usage = "FSAverageSymSphereSurface yields the fsaverage_sym subject's
+ spherical surface.";
+FSAverageSymCurvature::usage = "FSAverageSymCurvature yields the fsaverage_sym subject's
+ curvature.";
 FSAverageSymSulci::usage = "FSAverageSymSulci yields the fsaverage_sym subject's sulcal depth.";
-FSAverageSymThickness::usage = "FSAverageSymThickness yields the fsaverage_sym subject's cortical"
-    <> " thickness.";
-FSAverageSymRegisteredCurvature::usage = "FSAverageSymRegisteredCurvature yields the fsaverage_sym"
-    <> " subject's average curvature.";
-FSAverageSymVertexArea::usage = "FSAverageSymVertexArea yields the fsaverage_sym subject's vertex"
-    <> " areas (mid.area).";
-FSAverageSymVertexAreaPial::usage = "FSAverageSymVertexAreaPial yields the fsaverage_sym subject's"
-    <> " vertex areas (area.pial)";
-FSAverageSymVertexAreaWhite::usage = "FSAverageSymVertexAreaWhite yields the fsaverage_sym"
-    <> " subject's white matter vertex areas (area.white).";
+FSAverageSymThickness::usage = "FSAverageSymThickness yields the fsaverage_sym subject's cortical
+ thickness.";
+FSAverageSymRegisteredCurvature::usage = "FSAverageSymRegisteredCurvature yields the fsaverage_sym
+ subject's average curvature.";
+FSAverageSymVertexArea::usage = "FSAverageSymVertexArea yields the fsaverage_sym subject's vertex
+ areas (mid.area).";
+FSAverageSymVertexAreaPial::usage = "FSAverageSymVertexAreaPial yields the fsaverage_sym subject's
+ vertex areas (area.pial)";
+FSAverageSymVertexAreaWhite::usage = "FSAverageSymVertexAreaWhite yields the fsaverage_sym
+ subject's white matter vertex areas (area.white).";
 FSAverageSymVolume::usage = "FSAverageSymVolume yields the fsaverage_sym subject's vertex volumes.";
-FSAverageSymParcellation::usage = "FSAverageSymParcellation yields the fsaverage_sym subject's"
-    <> " region parcellations (2009).";
-FSAverageSymParcellation2009::usage = "FSAverageSymParcellation2009 yields the fsaverage_sym"
-    <> " subject's region parcellations (2009).";
-FSAverageSymParcellation2005::usage = "FSAverageSymParcellation2005 yields the fsaverage_sym"
-    <> " subject's region parcellations (2005).";
-$FSAverageSym::usage = "$FSAverageSym is the subject directory for the fsaverage_sym FreeSurfer"
-    <> " subject. If you add your freesurfer directory (or it is auto-detected), this will be"
-    <> " automatically discovered (see AddFreeSurferHome, AddFreeSurferSubjectsDir, and"
-    <> " AddFreeSurferSubject).";
+FSAverageSymParcellation::usage = "FSAverageSymParcellation yields the fsaverage_sym subject's
+ region parcellations (2009).";
+FSAverageSymParcellation2009::usage = "FSAverageSymParcellation2009 yields the fsaverage_sym
+ subject's region parcellations (2009).";
+FSAverageSymParcellation2005::usage = "FSAverageSymParcellation2005 yields the fsaverage_sym
+ subject's region parcellations (2005).";
+$FSAverageSym::usage = "$FSAverageSym is the subject directory for the fsaverage_sym FreeSurfer
+ subject. If you add your freesurfer directory (or it is auto-detected), this will be
+ automatically discovered (see AddFreeSurferHome, AddFreeSurferSubjectsDir, and
+ AddFreeSurferSubject).";
 
 
 (**************************************************************************************************)

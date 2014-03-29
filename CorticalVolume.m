@@ -12,18 +12,18 @@ BeginPackage["CorticalVolume`"];
 
 Unprotect[VolumeShell];
 ClearAll[VolumeShell];
-VolumeShell::usage = "VolumeShell[vol, tag] yields the indices of the outer shell of voxels in the"
-    <> " volume vol whose values match the pattern tag when they are in the volume.";
+VolumeShell::usage = "VolumeShell[vol, tag] yields the indices of the outer shell of voxels in the
+ volume vol whose values match the pattern tag when they are in the volume.";
 
 Unprotect[VolumeIndices, VolumeMask];
 ClearAll[VolumeIndices, VolumeMask];
-VolumeIndices::usage = "VolumeIndices[vol, tag] yields the indices of all voxels in the volume vol"
-    <> " that match the given tag.";
-VolumeMask::usage = "VolumeMask[indices] yields a volume mask in which voxels labeled in indices"
-    <> " are given a value of 1 and other voxels are given a value of 0. An optional third"
-    <> " argument, size, may give the dimensions (e.g., {256, 256, 256}); otherwise, the largest"
-    <> " value in the indices is used. The options True and False may also be passed to specify"
-    <> " what values should be given to voxels in or out of the mask, respectively.";
+VolumeIndices::usage = "VolumeIndices[vol, tag] yields the indices of all voxels in the volume vol
+ that match the given tag.";
+VolumeMask::usage = "VolumeMask[indices] yields a volume mask in which voxels labeled in indices
+ are given a value of 1 and other voxels are given a value of 0. An optional third
+ argument, size, may give the dimensions (e.g., {256, 256, 256}); otherwise, the largest
+ value in the indices is used. The options True and False may also be passed to specify
+ what values should be given to voxels in or out of the mask, respectively.";
 
 
 (**************************************************************************************************)
