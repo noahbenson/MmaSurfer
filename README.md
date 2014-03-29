@@ -1,4 +1,22 @@
-MmaSurfer
-=========
+# MmaSurfer ####################################################################
 
-A Mathematica library that facilitates interaction with the FreeSurfer fMRI tool.
+
+A Mathematica library that facilitates interaction with the FreeSurfer fMRI 
+tool.
+
+## Contents ####################################################################
+
+This repository contains four Mathematica package files:
+ * **CorticalSurface.m** - A collection of functions for dealing with triangle
+   meshes that compose the cortical surface of a brain hemisphere.
+ * **CorticalVolume.m** - A collection of functions for dealing with cortical 
+   volumes.
+ * **FreeSurfer.m** - The core interop library between FreeSurfer and 
+   Mathematica. Defines several functions that allow for easy access to subject
+   data.
+ * **OccipitalPole.m** - A small set of functions for examining fMRI data 
+   specifically relating to the occipital pole.
+
+There is additionally a notebook file, **tutorial.nb**, which contains 
+instructions and walkthroughs for installing and using the library.
+
