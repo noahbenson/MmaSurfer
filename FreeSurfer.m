@@ -149,12 +149,12 @@ SubjectBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's
  (after skull stripping).";
 SubjectWhiteMatter::usage = "SubjectBrain[sub] yields the volume for the subject sub's white
  matter.";
-SubjectFilledBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's brain in
- which the right hemisphere white matter has values of Left and the left hemisphere has
+SubjectFilledBrain::usage = "SubjectFilledBrain[sub] yields the volume for the subject sub's brain
+ in which the right hemisphere white matter has values of Left and the left hemisphere has
  values of Right. Note that these can be exported and will translate to FreeSurfer's
  specified RH -> 127 and LH -> 255 values.";
-SubjectHemisphere::usage = "SubjectBrain[sub, LH|RH] yields the volume for the subject sub's right
- or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
+SubjectHemisphere::usage = "SubjectHemisphere[sub, LH|RH] yields the volume for the subject sub's
+ right or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
 
 (* Surface Functions *)
 Unprotect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
