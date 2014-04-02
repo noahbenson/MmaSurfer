@@ -41,14 +41,45 @@ FSAverageSymV1Hull::usage = "$FSAverageSymV1Hull is the list of polygons in the 
  $FSAverageSymV1 (with the first polygon appended so that ListPlot or Lines will produce
  a correct polygon).";
 
-Unprotect[FSAverageOP, FSAverageSymOP];
-ClearAll[FSAverageOP, FSAverageSymOP];
-FSAverageOP::usage = "$FSAverageOP[hemi] is the (lazily-evaluated) index of the vertex in the
+Unprotect[FSAverageOP, FSAveragePialOP, FSAverageInflatedOP, FSAverageSphereOP, 
+          FSAverageSymOP, FSAverageSymPialOP, FSAverageSymInflatedOP, FSAverageSymSphereOP, 
+          FSAverageSymRegisteredOP];
+ClearAll[ FSAverageOP, FSAveragePialOP, FSAverageInflatedOP, FSAverageSphereOP, 
+          FSAverageSymOP, FSAverageSymPialOP, FSAverageSymInflatedOP, FSAverageSymSphereOP, 
+          FSAverageSymRegisteredOP];
+FSAverageOP::usage = "FSAverageOP[hemi] is the (lazily-evaluated) index of the vertex in the
  occipital cortex (spherical hemisphere) that corresponds roughly to the tip of the
  occipital pole in the fsaverage.";
-FSAverageSymOP::usage = "$FSAverageSymOP is the (lazily-evaluated) index of the vertex in the
+FSAveragePialOP::usage = "FSAveragePialOP[hemi] yields the vertex coordinate (not the index) of the
+  occipital pole in the given hemisphere hemi of the fsaverage brain's pial surface.";
+FSAverageInflatedOP::usage = "FSAverageInflatedOP[hemi] yields the vertex coordinate (not the index)
+  of the occipital pole in the given hemisphere hemi of the fsaverage brain's inflated surface.";
+FSAverageSphereOP::usage = "FSAverageSphereOP[hemi] yields the vertex coordinate (not the index) of
+  the occipital pole in the given hemisphere hemi of the fsaverage brain's spherical surface.";
+FSAverageSymOP::usage = "FSAverageSymOP is the (lazily-evaluated) index of the vertex in the
  occipital cortex that corresponds roughly to the tip of the occipital pole in the
  fsaverage_sym brain.";
+FSAverageSymPialOP::usage = "FSAverageSymPialOP[hemi] yields the vertex coordinate (not the index)
+ of the occipital pole in the given hemisphere hemi of the fsaverage brain's pial surface.";
+FSAverageSymInflatedOP::usage = "FSAverageSymInflatedOP[hemi] yields the vertex coordinate (not the
+ index) of the occipital pole in the given hemisphere hemi of the fsaverage brain's inflated
+ surface.";
+FSAverageSymSphereOP::usage = "FSAverageSymSphereOP[hemi] yields the vertex coordinate (not the
+ index) of the occipital pole in the given hemisphere hemi of the fsaverage brain's spherical
+ surface.";
+
+Unprotect[SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP];
+ClearAll[ SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP];
+SubjectOP::usage = "SubjectOP[sub, hemi] yields the vertex index of the subject sub's occipital
+ pole in the given hemisphere hemi.";
+SubjectPialOP::usage = "SubjectPialOP[sub, hemi] yields the vertex coordinate (not the index) of the
+ occipital pole in the given subject sub's given pial hemisphere hemi.";
+SubjectInflatedOP::usage = "SubjectInflatedOP[sub, hemi] yields the vertex coordinate (not the
+ index) of the occipital pole in the given subject sub's given inflated hemisphere hemi.";
+SubjectSphereOP::usage = "SubjectSphereOP[sub, hemi] yields the vertex coordinate (not the index) of
+ the occipital pole in the given subject sub's given spherical hemisphere hemi.";
+SubjectRegisteredOP::usage = "SubjectPialOP[sub, hemi] yields the vertex coordinate (not the index)
+ of the occipital pole in the given subject sub's given registered spherical hemisphere hemi.";
 
 
 (**************************************************************************************************)
@@ -114,7 +145,6 @@ FSAverageSymOP := With[
     Set[
       FSAverageSymOP,
       First[Ordering[V[[All, 2]], 1]]]]];
-
 
 FSAverageV1Hull[hemi:(LH|RH)] := With[
   {res = Check[
@@ -182,6 +212,28 @@ FSAverageSymV1Hull := With[
              #[[2]] != last &]]]],
      $Failed]},
   If[res === $Failed, $Failed, Set[FSAverageSymV1Hull, res]]];
+
+
+SubjectOP[sub_, hemi:(LH|RH)] := With[
+  {V = Check[Vertices[SubjectInflatedSurface[sub, hemi]], $Failed]},
+  If[V === $Failed,
+    $Failed,
+    Set[
+      SubjectOP[sub, hemi],
+      First[Ordering[V[[All, 2]], 1]]]]];
+SubjectPialeOP[sub_, hemi:(LH|RH)] := With[
+  {idx = SubjectOP[sub, hemi]},
+  If[idx === $Failed, $Failed, Vertices[SubjectPialSurface[sub, hemi]][[idx]]]];
+SubjectInflatedOP[sub_, hemi:(LH|RH)] := With[
+  {idx = SubjectOP[sub, hemi]},
+  If[idx === $Failed, $Failed, Vertices[SubjectInflatedSurface[sub, hemi]][[idx]]]];
+SubjectSphereOP[sub_, hemi:(LH|RH)] := With[
+  {idx = SubjectOP[sub, hemi]},
+  If[idx === $Failed, $Failed, Vertices[SubjectSphereSurface[sub, hemi]][[idx]]]];
+SubjectRegisteredOP[sub_, hemi:(LH|RH)] := With[
+  {idx = SubjectOP[sub, hemi]},
+  If[idx === $Failed, $Failed, Vertices[SubjectRegisteredSurface[sub, hemi]][[idx]]]];
+
 
 End[];
 EndPackage[];

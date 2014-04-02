@@ -558,7 +558,7 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
             Message[SurfaceProjection::badarg, ProjectionShear, "must be of the form {{1, Sx}, {Sy, 1}}"];
             Throw[$Failed])}],
        rad = Replace[
-         OptionValue[Radius],
+         N[OptionValue[Radius]],
          {Automatic :> (Radius /. dflt),
           x_ /; Or[Not[NumberQ[x]], x <= 0] :> (
             Message[SurfaceProjection::badarg, Radius, "must be a positive number"];
@@ -753,21 +753,18 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
      Z = Normal[Field[surf]],
      cfn = Replace[
        OptionValue[ColorFunction],
-       Automatic -> Function[Blend[{Blue,Cyan,Gray,Yellow,Red},#]]],
-     cfnsc = Replace[
-       OptionValue[ColorFunctionScaling],
-       {None|False -> Identity,
-        Ordering -> Function[
-          With[
-            {ord = Ordering[#]},
-            (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[#] - 1)]],
-        True|Automatic -> Function[
-          With[
-            {min = Min[#],
-             max = Max[#]},
-           (# - min) / (max - min)]]}]},
+       Automatic -> Function[Blend[{Blue,Cyan,Gray,Yellow,Red},#]]]},
     With[
-      {ZZ = cfnsc[Z]},
+      {ZZ = Replace[
+         OptionValue[ColorFunctionScaling],
+         {None|False :> Z,
+          Ordering :> With[
+            {ord = Ordering[Z]},
+            (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[Z] - 1)],
+          True|Automatic :> With[
+            {min = Min[Z],
+             max = Max[Z]},
+            (Z - min) / (max - min)]}]},
       {EdgeForm[None],
        If[!ListQ[F],
          MapThread[
