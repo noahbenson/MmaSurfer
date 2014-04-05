@@ -658,6 +658,16 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
               Map[Vertices[sym][[#]]&, Faces[sym]]];
             sym]]]]]];
 
+(* #StructuredRescale * ***************************************************************************)
+(* This is used be MapPlot and SurfacePlot when normalizing oddly structured  data sets in the color
+   function scaling process *)
+StructuredRescale[dat_List] := If[ArrayDepth[dat] == 1,
+   Rescale[dat],
+   Transpose[
+     Map[
+      StructuredRescale,
+      Transpose[dat]]]];
+
 (* #MapPlot ***************************************************************************************)
 Options[MapPlot] = Join[
   Options[Graphics],
@@ -678,11 +688,7 @@ MapPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
           With[
             {ord = Ordering[#]},
             (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[#] - 1)]],
-        True|Automatic -> Function[
-          With[
-            {min = Min[#],
-             max = Max[#]},
-           (# - min) / (max - min)]]}]},
+        True|Automatic -> StructuredRescale}]},
     With[
       {ZZ = cfnsc[Z]},
       {EdgeForm[None],
@@ -761,10 +767,7 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
           Ordering :> With[
             {ord = Ordering[Z]},
             (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[Z] - 1)],
-          True|Automatic :> With[
-            {min = Min[Z],
-             max = Max[Z]},
-            (Z - min) / (max - min)]}]},
+          True|Automatic :> StructuredRescale[Z]}]},
       {EdgeForm[None],
        If[!ListQ[F],
          MapThread[
