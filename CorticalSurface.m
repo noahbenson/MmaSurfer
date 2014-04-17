@@ -747,6 +747,25 @@ SurfaceCases[surf_?SurfaceQ, form_] := With[
           Field -> Pick[Z, pick],
           Faces -> (Select[F, Apply[And, pick[[#]]]&] /. tr)]]]]];
 
+(* #MergePolygons *********************************************************************************)
+(* Used by SurfacePlot below *)
+MergePolygons[polygons_List, X_List, categories_List] := With[
+  {nomerge = Select[
+     polygons,
+     Function[{pg}, Length[Union[categories[[pg]]]] > 1]],
+   canmerge = GatherBy[
+     Select[
+       polygons,
+       Function[{pg}, Length[Union[categories[[pg]]]] == 1]],
+     categories[[#[[1]]]]&]},
+  Join[
+    Map[
+     Function[{pgs},
+       {categories[[pgs[[1, 1]]]],
+        Polygon[X[[#]] & /@ pgs]}],
+     canmerge],
+    Polygon[X[[#]], VertexColors -> categories[[#]]] & /@ nomerge]];
+
 (* #SurfacePlot ***********************************************************************************)
 Options[SurfacePlot] = Join[
   Options[Graphics3D],
@@ -759,7 +778,10 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
      Z = Normal[Field[surf]],
      cfn = Replace[
        OptionValue[ColorFunction],
-       Automatic -> Function[Blend[{Blue,Cyan,Gray,Yellow,Red},#]]]},
+       Automatic -> Function[
+         Blend[
+           {Blue, Darker[Cyan, 1/6], Darker[Green], Darker[Yellow, 1/6], Red},
+           #]]]},
     With[
       {ZZ = Replace[
          OptionValue[ColorFunctionScaling],
@@ -773,9 +795,7 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
          MapThread[
            Function[{cfn[#1], Point[#2]}],
            {ZZ, V}],
-         Map[
-           Function[Polygon[V[[#]], VertexColors -> Map[cfn, ZZ[[#]]]]],
-           F]]}]],
+         MergePolygons[F, V, cfn /@ ZZ]]}]],
   Sequence@@FilterRules[
     {opts},
     Except[ColorFunction|ColorFunctionScaling]]];
@@ -829,7 +849,7 @@ SurfaceResample[a_?SurfaceQ, b_?SurfaceQ, opts:OptionsPattern[]] := Catch[
               "must be Nearest/Interpolation/ListInterpolation"];
             Throw[$Failed])]]]]];
 (* Alias for surface resample that self-hashes like surfaces *)
-Unprotect[Rule];
+(*Unprotect[Rule];
 Rule[a_?SurfaceQ, b_?SurfaceQ] := With[
   {res = SurfaceResample[a, b]},
   If[res =!= $Failed, 
@@ -837,7 +857,7 @@ Rule[a_?SurfaceQ, b_?SurfaceQ] := With[
     Set[Rule[a,b], res];
     Protect[Rule]];
   res];
-Protect[Rule];
+Protect[Rule];*)
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
