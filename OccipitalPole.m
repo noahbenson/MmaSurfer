@@ -234,6 +234,31 @@ SubjectRegisteredOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
   If[idx === $Failed, $Failed, Vertices[SubjectRegisteredSurface[sub, hemi]][[idx]]]];
 
+FSAveragePialOP[hemi:(LH|RH)] := With[
+  {idx = FSAverageOP[hemi]},
+  If[idx === $Failed, $Failed, Vertices[FSAveragePialSurface[hemi]][[idx]]]];
+FSAverageInflatedOP[hemi:(LH|RH)] := With[
+  {idx = FSAverageOP[hemi]},
+  If[idx === $Failed, $Failed, Vertices[FSAverageInflatedSurface[hemi]][[idx]]]];
+FSAverageSphereOP[hemi:(LH|RH)] := With[
+  {idx = FSAverageOP[hemi]},
+  If[idx === $Failed, $Failed, Vertices[FSAverageSphereSurface[hemi]][[idx]]]];
+FSAverageRegisteredOP[hemi:(LH|RH)] := With[
+  {idx = FSAverageOP[hemi]},
+  If[idx === $Failed, $Failed, Vertices[FSAverageRegisteredSurface[hemi]][[idx]]]];
+
+FSAverageSymPialOP := With[
+  {idx = FSAverageSymOP},
+  If[idx === $Failed, $Failed, Vertices[FSAverageSymPialSurface][[idx]]]];
+FSAverageSymInflatedOP := With[
+  {idx = FSAverageSymOP},
+  If[idx === $Failed, $Failed, Vertices[FSAverageSymInflatedSurface][[idx]]]];
+FSAverageSymSphereOP := With[
+  {idx = FSAverageSymOP},
+  If[idx === $Failed, $Failed, Vertices[FSAverageSymSphereSurface][[idx]]]];
+FSAverageSymRegisteredOP := With[
+  {idx = FSAverageSymOP},
+  If[idx === $Failed, $Failed, Vertices[FSAverageSymRegisteredSurface][[idx]]]];
 
 End[];
 EndPackage[];
