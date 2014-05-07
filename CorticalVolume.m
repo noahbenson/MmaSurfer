@@ -40,18 +40,19 @@ With[
        1, 1, 1],
      2]},
   VolumeShell[mask_List /; Length[Dimensions[mask]] > 2, tag_] := Union[
-     Reap[
+     Last@Reap[
        Scan[
-        Function[{idx}, 
-          Scan[
-            Function[{neighborAt},
-              With[
-                {neighborIdx = idx + neighborAt},
-                If[Not[MatchQ[Extract[mask, neighborIdx], tag]],
-                  (Sow[neighborIdx]; Sow[idx])]]],
-          neis]],
-        Position[mask, tag, {3}]]
-      ][[2, 1]]]];
+         Function[{idx}, 
+           Scan[
+             Function[{neighborAt},
+               With[
+                 {neighborIdx = idx + neighborAt},
+                 If[Not[MatchQ[Extract[mask, neighborIdx], tag]],
+                   (Sow[neighborIdx]; Sow[idx])]]],
+           neis]],
+         Position[mask, tag, {3}, Heads -> False]],
+       _,
+       Apply[Sequence, #2]&]]];
 Protect[VolumeShell];
 
 (* #VolumeIndices *********************************************************************************)
