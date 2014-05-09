@@ -25,6 +25,12 @@ VolumeMask::usage = "VolumeMask[indices] yields a volume mask in which voxels la
  value in the indices is used. The options True and False may also be passed to specify
  what values should be given to voxels in or out of the mask, respectively.";
 
+Unprotect[VolumeBoundaries];
+ClearAll[VolumeBoundaries];
+VolumeBoundaries::usage = "VolumeBoundaries[vol, tag] yields a list of {{xmin, xmax}, {ymin, ymax},
+ ...} such that everything outside of the given rectangular ranges fails to match tag. If no voxels
+ match the given tag, then None is returned.";
+
 
 (**************************************************************************************************)
 Begin["`Private`"];
@@ -59,8 +65,19 @@ Protect[VolumeShell];
 VolumeIndices[vol_List /; Length[Dimensions[vol]] > 2, tag_] := Position[
   vol,
   tag,
-  {3}];
+  {Length[Dimensions[vol]]},
+  Heads -> False];
+VolumeIndices[vol_MGHQ, tag_] := Map[
+  Function[{vol}, Position[vol, tag, {3}, Heads -> False]],
+  Volumes[vol]];
 Protect[VolumeIndices];
+
+(* #VolumeBoundaries ******************************************************************************)
+VolumeBoundaries[vol_List /; Length[Dimensions[vol]] > 2, tag_] := With[
+  {match = VolumeIndices[vol, tag]},
+  If[Length[match] == 0,
+    None,
+    Table[{Min[match[[All, k]]], Max[match[[All, k]]]}, {k, 1, Length[First[match]]}]]];
 
 (* #VolumeMask ************************************************************************************)
 Options[VolumeMask] = {True -> 1, False -> 0};
