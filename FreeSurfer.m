@@ -158,9 +158,9 @@ SubjectHemisphere::usage = "SubjectHemisphere[sub, LH|RH] yields the volume for 
 
 (* Surface Functions *)
 Unprotect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
-          SubjectRegisteredSurface];
+          SubjectRegisteredSurface, SubjectSymSurface];
 ClearAll[ SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
-          SubjectRegisteredSurface];
+          SubjectRegisteredSurface, SubjectSymSurface];
 SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical
  surface tesselation for subject sub's specified hemishere.";
 SubjectPialSurface::usage = "SubjectPialSurface[sub, hemi] yields the pial surface object for
@@ -172,6 +172,9 @@ SubjectSphereSurface::usage = "SubjectSphereSurface[sub, hemi] yields the spheri
     " subject to the FSAverage hemisphere. For that, see SubjectRegisteredSurface..";
 SubjectRegisteredSurface::usage = "SubjectRegisteredSurface[sub, hemi] yields the subject's
  cortical surface registered to the spherical fsaverage hemisphere for subject sub's
+ specified hemishere.";
+SubjectSymSurface::usage = "SubjectSymSurface[sub, hemi] yields the subject's
+ cortical surface registered to the spherical fsaverage_sym hemisphere for subject sub's
  specified hemishere.";
 
 (* Surface Field Functions *)
@@ -1493,15 +1496,17 @@ SubjectSphereSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
 SubjectRegisteredSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
   SubjectSimpleSurface[sub, hemi, "sphere.reg"],
   $Failed];
+SubjectSymSurface[sub_String, hemi:(LH|RH)] := Check[
+  SubjectSimpleSurface[sub, If[hemi === RH, RHX, hemi], "fsaverage_sym.sphere.reg"],
+  $Failed];
 SubjectFSAverage[sub_String, hemi:(LH|RH)] := Rule[
   SubjectRegisteredSurface[sub, hemi],
   $FSAverageSurface];
 SubjectFSAverageSym[sub_String, hemi:(LH|RH)] := Rule[
-  If[hemi === RH,
-    SubjectRegisteredSurface[sub, RHX]
-    SubjectRegisteredSurface[sub, LH]],
+  SubjectSymSurface[sub, hemi],
   $FSAverageSymSurface];
-Protect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface, SubjectRegisteredSurface];
+Protect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface, 
+        SubjectRegisteredSurface, SubjectSymSurface];
 
 
 (* Data that can be merged with surfaces **********************************************************)

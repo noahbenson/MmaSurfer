@@ -68,8 +68,8 @@ FSAverageSymSphereOP::usage = "FSAverageSymSphereOP[hemi] yields the vertex coor
  index) of the occipital pole in the given hemisphere hemi of the fsaverage brain's spherical
  surface.";
 
-Unprotect[SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP];
-ClearAll[ SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP];
+Unprotect[SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP, SubjectSymOP];
+ClearAll[ SubjectOP, SubjectPialOP, SubjectInflatedOP, SubjectSphereOP, SubjectRegisteredOP, SubjectSymOP];
 SubjectOP::usage = "SubjectOP[sub, hemi] yields the vertex index of the subject sub's occipital
  pole in the given hemisphere hemi.";
 SubjectPialOP::usage = "SubjectPialOP[sub, hemi] yields the vertex coordinate (not the index) of the
@@ -78,8 +78,39 @@ SubjectInflatedOP::usage = "SubjectInflatedOP[sub, hemi] yields the vertex coord
  index) of the occipital pole in the given subject sub's given inflated hemisphere hemi.";
 SubjectSphereOP::usage = "SubjectSphereOP[sub, hemi] yields the vertex coordinate (not the index) of
  the occipital pole in the given subject sub's given spherical hemisphere hemi.";
-SubjectRegisteredOP::usage = "SubjectPialOP[sub, hemi] yields the vertex coordinate (not the index)
+SubjectRegisteredOP::usage = "SubjectRegisteredOP[sub, hemi] yields the vertex coordinate (not the index)
  of the occipital pole in the given subject sub's given registered spherical hemisphere hemi.";
+SubjectSymOP::usage = "SubjectSymOP[sub, hemi] yields the vertex coordinate (not the index)
+ of the occipital pole in the given subject sub's given sym-registered spherical hemisphere hemi.";
+
+Unprotect[FSAverageSymPolarAngle, FSAverageSymEccentricity, FSAverageSymVisualArea, FSAverageSymRetinotopy];
+ClearAll[ FSAverageSymPolarAngle, FSAverageSymEccentricity, FSAverageSymVisualArea, FSAverageSymRetinotopy];
+FSAverageSymPolarAngle::usage = "FSAverageSymPolarAngle yields the polar angle data for the fsaverage_sym
+ subjectas a field on the fsaverage_sym hemisphere.";
+FSAverageSymEccentricity::usage = "FSAverageSymEccentricity yields the eccentricity data for the 
+ fsaverage_sym subject as a field on the fsaverage_sym hemisphere.";
+FSAverageSymVisualArea::usage = "FSAverageSymVisualArea yields the visual area data for the 
+ fsaverage_sym subject as a field on the fsaverage_sym hemisphere. Each vertex will either be
+ labeled as 1, 2, 3 (for dorsal regions), or -1, -2, -3 (for ventral regions) or None.";
+FSAverageSymRetinotopy::usage = "FSAverageSymRetinotopy yields the retinotopy field for the 
+ fsaverage_sym subject. The field for each vertex is {PA, E, A} where PA is the polar angle, E is
+ the eccentricity, and A is the area.";
+
+Unprotect[SubjectPolarAngle, SubjectEccentricity, SubjectVisualArea, SubjectRetinotopy];
+ClearAll[ SubjectPolarAngle, SubjectEccentricity, SubjectVisualArea, SubjectRetinotopy];
+SubjectPolarAngle::usage = "SubjectPolarAngle[sub, hemi] yields the polar angle data for the subject
+ sub and the hemisphere hemi as a field on the subject's registered fsaverage_sym hemisphere.";
+SubjectEccentricity::usage = "SubjectEccentricity[sub, hemi] yields the eccentricity data for the 
+ subject sub and the hemisphere hemi as a field on the subject's registered fsaverage_sym
+ hemisphere.";
+SubjectVisualArea::usage = "SubjectVisualArea[sub, hemi] yields the visual area data for the subject
+ sub and the hemisphere hemi as a field on the subject's registered fsaverage_sym hemisphere. Each
+ vertex will either be labeled as 1, 2, 3 (for dorsal regions), or -1, -2, -3 (for ventral regions)
+ or None.";
+SubjectRetinotopy::usage = "SubjectRetinotopy[sub, hemi] yields the retinotopy field for the given
+ subject sub and the given hemisphere hemi. The field for each vertex is {PA, E, A} where PA is the
+ polar angle, E is the eccentricity, and A is the area.";
+
 
 
 (**************************************************************************************************)
@@ -233,6 +264,9 @@ SubjectSphereOP[sub_, hemi:(LH|RH)] := With[
 SubjectRegisteredOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
   If[idx === $Failed, $Failed, Vertices[SubjectRegisteredSurface[sub, hemi]][[idx]]]];
+SubjectSymOP[sub_, hemi:(LH|RH)] := With[
+  {idx = SubjectOP[sub, hemi]},
+  If[idx === $Failed, $Failed, Vertices[SubjectSymSurface[sub, hemi]][[idx]]]];
 
 FSAveragePialOP[hemi:(LH|RH)] := With[
   {idx = FSAverageOP[hemi]},
@@ -259,6 +293,78 @@ FSAverageSymSphereOP := With[
 FSAverageSymRegisteredOP := With[
   {idx = FSAverageSymOP},
   If[idx === $Failed, $Failed, Vertices[FSAverageSymRegisteredSurface][[idx]]]];
+
+FSAverageSymRetinotopy := With[
+  {field = Check[
+     MapThread[
+       Function[{pa, e, a},
+         Which[
+           Abs[a] < 1 || Abs[a] > 3, {None, None, None},
+           NumberQ[pa] && pa > 90.0, {pa, e, -Abs[a]},
+           NumberQ[pa] && pa <= 90.0, {pa, e, Abs[a]},
+           True, {None, None, None}]],
+       Map[
+         Function[{fl}, First[Surfaces[Import[fl, "MGH"]]]],
+         {"https://cfn.upenn.edu/aguirreg/public/ES_template/mgh_files/angle-template.sym.mgh",
+          "https://cfn.upenn.edu/aguirreg/public/ES_template/mgh_files/eccen-template.sym.mgh",
+          "https://cfn.upenn.edu/aguirreg/public/ES_template/mgh_files/areas-template.sym.mgh"}]],
+     $Failed]},
+  If[filed === $Failed,
+    $Failed,
+    Set[FSAverageSymRetinotopy, Rule[field, FSAverageSymSphereSurface]]]];
+FSAverageSymPolarAngle := With[
+  {retino = Check[FSAverageSymRetinotopy, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[FSAverageSymPolarAngle, Rule[Field[retino][[All,1]], FSAverageSymSphereSurface]]]];
+FSAverageSymEccentricity := With[
+  {retino = Check[FSAverageSymRetinotopy, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[FSAverageSymEccentricity, Rule[Field[retino][[All,2]], FSAverageSymSphereSurface]]]];
+FSAverageSymVisualArea := With[
+  {retino = Check[FSAverageSymRetinotopy, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[FSAverageSymVisualArea, Rule[Field[retino][[All,3]], FSAverageSymSphereSurface]]]];
+
+SubjectRetinotopy[sub_, hemi:(LH|RH)] := With[
+  {retino = Check[FSAverageSymRetinotopy, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[
+      SubjectRetinotopy[sub, hemi],
+      SurfaceResample[
+        retino,
+        SubjectSymSurface[sub, hemi]]]]];
+SubjectPolarAngle[sub_, hemi:(LH|RH)] := With[
+  {retino = Check[FSAverageSymPolarAngle, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[
+      SubjectPolarAngle[sub, hemi],
+      SurfaceResample[
+        retino,
+        SubjectSymSurface[sub, hemi]]]]];
+SubjectEccentricity[sub_, hemi:(LH|RH)] := With[
+  {retino = Check[FSAverageSymEccentricity, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[
+      SubjectEccentricity[sub, hemi],
+      SurfaceResample[
+        retino,
+        SubjectSymSurface[sub, hemi]]]]];
+SubjectVisualArea[sub_, hemi:(LH|RH)] := With[
+  {retino = Check[FSAverageSymVisualArea, $Failed]},
+  If[retino === $Failed,
+    $Failed,
+    Set[
+      SubjectVisualArea[sub, hemi],
+      SurfaceResample[
+        retino,
+        SubjectSymSurface[sub, hemi]]]]];      
+
 
 End[];
 EndPackage[];
