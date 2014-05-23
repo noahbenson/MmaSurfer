@@ -218,7 +218,10 @@ SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equival
 SurfaceNeighborhoods::usage = "SurfaceNeighborhoods[surf] yields a list of length N (where N is the
  number of vertices in surf) of the neighboring vertices of each vertex; each entry k of the list is
  a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such
- that they are listed in a counter-clockwise order around vertex k starting from the x-axis."
+ that they are listed in a counter-clockwise order around vertex k starting from the x-axis.";
+
+SurfaceEdges::usage = "SurfaceEdges[surf] yields a list of all edges in Faces[surf] such that each
+ edge is listed exactly once as {u,v} where u < v.";
 
 (**************************************************************************************************)
 Begin["`Private`"];
@@ -845,6 +848,11 @@ SurfaceNeighborhoods[surf_?SurfaceQ] := With[
                 Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]
                ][[All, 1;;2]]},
               SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]];
+
+(* #SurfaceEdges **********************************************************************************)
+SurfaceEdges[surf_?SurfaceQ] := Map[
+  Sort,
+  Union[Flatten[Map[Subsets[#,{2}]&, Faces[surf]], 1]]];
 
 (* #SurfaceResample *******************************************************************************)
 Options[SurfaceResample] = Prepend[
