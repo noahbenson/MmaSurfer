@@ -21,7 +21,8 @@ Unprotect[Azimuth, Cartesian, CartesianToSpherical,
           SphericalCoordinateStyle, SphericalToCartesian, Surface,
           SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
           SurfaceQ, SurfaceReplace, SurfaceResample, SurfaceRotation,
-          SurfaceSelect, ToField, Vertices, WithField, WithFilter];
+          SurfaceSelect, SurfaceNeighborhoods, ToField, Vertices, WithField, 
+          WithFilter];
 
 ClearAll[Azimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
          CorticalSurface, CorticalSurfaceFromVTK, Domain,
@@ -33,7 +34,8 @@ ClearAll[Azimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
          SphericalCoordinateStyle, SphericalToCartesian, Surface,
          SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
          SurfaceQ, SurfaceReplace, SurfaceResample, SurfaceRotation,
-         SurfaceSelect, ToField, WithField, WithFilter];
+         SurfaceSelect, SurfaceNeighborhoods, ToField, WithField, 
+         WithFilter];
 
 (*
 Faces::usage = "Faces[surf] yields a list of all faces in the surface surf, if any, as lists of
@@ -212,6 +214,11 @@ SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equival
  the list are options to pass to these functions; e.g. Method -> {Interpolation, 
  InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2]
  but self-hashes.";
+
+SurfaceNeighborhoods::usage = "SurfaceNeighborhoods[surf] yields a list of length N (where N is the
+ number of vertices in surf) of the neighboring vertices of each vertex; each entry k of the list is
+ a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such
+ that they are listed in a counter-clockwise order around vertex k starting from the x-axis."
 
 (**************************************************************************************************)
 Begin["`Private`"];
@@ -812,6 +819,27 @@ SurfaceMap[fn_, surfs_List /; And@@((ListQ[#] || SurfaceQ[#])& /@ surfs)] := Cor
 SurfaceReplace[surf_?SurfaceQ, rules_] := CorticalSurface[
   Replace[Normal[surf], rules],
   Faces -> Faces[surf]];
+
+(* #SurfaceNeighborhoods **************************************************************************)
+SurfaceNeighborhoods[surf_?SurfaceQ] := Last[
+  Reap[
+    Scan[
+      Function[{face},
+        Scan[
+          Function[{pair},
+            Sow[pair[[1]], pair[[2]]];
+            Sow[pair[[2]], pair[[1]]]],
+          Subsets[face, {2}]]],
+      Faces[surf]],
+  Range[Length[Vertices[surf]]],
+  Function[{id, neighbors},
+    Apply[
+      Sequence,
+      SortBy[
+        Union[neighbors],
+        With[
+          {U = Dot[V[[neighbors]], Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]][[All, 1;;2]]}, 
+          ArcTan[#[[1]],#[[2]]]&]]]]]];
 
 (* #SurfaceResample *******************************************************************************)
 Options[SurfaceResample] = Prepend[
