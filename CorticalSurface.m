@@ -821,25 +821,30 @@ SurfaceReplace[surf_?SurfaceQ, rules_] := CorticalSurface[
   Faces -> Faces[surf]];
 
 (* #SurfaceNeighborhoods **************************************************************************)
-SurfaceNeighborhoods[surf_?SurfaceQ] := Last[
-  Reap[
-    Scan[
-      Function[{face},
-        Scan[
-          Function[{pair},
-            Sow[pair[[1]], pair[[2]]];
-            Sow[pair[[2]], pair[[1]]]],
-          Subsets[face, {2}]]],
-      Faces[surf]],
-  Range[Length[Vertices[surf]]],
-  Function[{id, neighbors},
-    Apply[
-      Sequence,
-      SortBy[
-        Union[neighbors],
-        With[
-          {U = Dot[V[[neighbors]], Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]][[All, 1;;2]]}, 
-          ArcTan[#[[1]],#[[2]]]&]]]]]];
+SurfaceNeighborhoods[surf_?SurfaceQ] := With[
+  {V = Vertices[surf]},
+  Last[
+    Reap[
+      Scan[
+        Function[{face},
+          Scan[
+            Function[{pair},
+              Sow[pair[[1]], pair[[2]]];
+              Sow[pair[[2]], pair[[1]]]],
+            Subsets[face, {2}]]],
+        Faces[surf]],
+      Range[Length[V]],
+      Function[{id, neighbors},
+        Apply[
+          Sequence,
+          With[
+            {neis = Union[neighbors]},
+            With[
+              {U = Dot[
+                V[[neis]], 
+                Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]
+               ][[All, 1;;2]]},
+              SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]];
 
 (* #SurfaceResample *******************************************************************************)
 Options[SurfaceResample] = Prepend[
