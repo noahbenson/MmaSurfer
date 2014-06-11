@@ -18,7 +18,7 @@ Unprotect[Azimuth, Cartesian, CartesianToSpherical,
           MapQ, MergeSurfaces, OrientMatrix, OrientPoint, PolarAngle,
           Polygons, ProjectionDispatch, ProjectionRotation,
           ProjectionShear, ProjectionTransform, Radius, ReadVTK,
-          SphericalCoordinateStyle, SphericalToCartesian, Surface,
+          SphericalCoordinateStyle, SphericalToCartesian, Surface, SurfaceEdges,
           SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
           SurfaceQ, SurfaceReplace, SurfaceResample, SurfaceRotation,
           SurfaceSelect, SurfaceNeighborhoods, ToField, Vertices, WithField, 
@@ -31,7 +31,7 @@ ClearAll[Azimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
          MapPlot, MapQ, MergeSurfaces, OrientMatrix, OrientPoint,
          PolarAngle, Polygons, ProjectionDispatch, ProjectionRotation,
          ProjectionShear, ProjectionTransform, ReadVTK,
-         SphericalCoordinateStyle, SphericalToCartesian, Surface,
+         SphericalCoordinateStyle, SphericalToCartesian, Surface, SurfaceEdges,
          SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
          SurfaceQ, SurfaceReplace, SurfaceResample, SurfaceRotation,
          SurfaceSelect, SurfaceNeighborhoods, ToField, WithField, 
@@ -850,9 +850,10 @@ SurfaceNeighborhoods[surf_?SurfaceQ] := With[
               SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]];
 
 (* #SurfaceEdges **********************************************************************************)
-SurfaceEdges[surf_?SurfaceQ] := Map[
-  Sort,
-  Union[Flatten[Map[Subsets[#,{2}]&, Faces[surf]], 1]]];
+SurfaceEdges[surf_?SurfaceQ] := Union[
+  Map[
+    Sort,
+    Flatten[Map[Subsets[#,{2}]&, Faces[surf]], 1]]];
 
 (* #SurfaceResample *******************************************************************************)
 Options[SurfaceResample] = Prepend[
@@ -998,7 +999,7 @@ Protect[Azimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
         OrientMatrix, OrientPoint, PolarAngle, Polygons,
         ProjectionDispatch, ProjectionRotation, ProjectionShear,
         ProjectionTransform, Radius, ReadVTK,
-        SphericalCoordinateStyle, SphericalToCartesian, Surface,
+        SphericalCoordinateStyle, SphericalToCartesian, Surface, SurfaceEdges,
         SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
         SurfaceQ, SurfaceReplace, SurfaceRotation, SurfaceResample,
         SurfaceSelect, ToField, Vertices, WithField, WithFilter];
