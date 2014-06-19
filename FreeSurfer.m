@@ -368,7 +368,7 @@ ImportMGHHeader[stream_InputStream, opts___] := "Header" -> Catch[
            Zras = If[goodRASFlag == 1, BinaryReadList[stream, "Real32", 3], {0.0, 1.0, 0.0}],
            Cras = If[goodRASFlag == 1, BinaryReadList[stream, "Real32", 3], {0.0, 0.0, 0.0}]},
           {Version -> version,
-           Dimensions -> {width, height, depth},
+           Dimensions -> {depth, height, width},
            Frames -> nframes,
            ImageBufferType -> type,
            DegreesOfFreedom -> dof,
@@ -475,7 +475,7 @@ ImportMGHFooter[stream_InputStream, opts___] := "OptionalData" -> Catch[
               If[Length[data] < Length[$MGHOptionalData], 
                 data,
                 Replace[
-                  dbg = BinaryReadList[stream, "UnsignedInteger8"],
+                  BinaryReadList[stream, "UnsignedInteger8"],
                   {EndOfFile :> data,
                    chars_ :> Append[
                      data,
