@@ -13,10 +13,10 @@ BeginPackage["OccipitalPole`", {"CorticalSurface`", "FreeSurfer`", "Computationa
 
 Unprotect[FSAverageV1Mask, FSAverageSymV1Mask, FSAverageV1, FSAverageSymV1];
 ClearAll[FSAverageV1Mask, FSAverageSymV1Mask, FSAverageV1, FSAverageSymV1];
-FSAVerageMask::usage = "FSAverageV1[hemi] is a lazily-loaded label object of the points in the
+FSAverageV1Mask::usage = "FSAverageV1Mask[hemi] is a lazily-loaded label object of the points in the
  fsaverage V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from the
  fsaverage subject, so that must be set appropriately (in the FreeSurfer package).";
-FSAVerageSymMask::usage = "FSAverageSymV1 is a lazily-loaded label object of the points in the
+FSAverageSymV1Mask::usage = "FSAverageSymV1Mask is a lazily-loaded label object of the points in the
  fsaverage_sym V1, according to Hinds et al. (2008) NeuroImage. This data is loaded from
  the fsaverage_sym subject, so that must be set appropriately (in the FreeSurfer package).";
 FSAVerageV1::usage = "FSAverageV1[hemi] is a lazily-loaded list of vertex indices of those points
