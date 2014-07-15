@@ -375,7 +375,7 @@ ImportMGHHeader[stream_InputStream, opts___] := "Header" -> Catch[
            Zras = If[goodRASFlag == 1, BinaryReadList[stream, "Real32", 3], {0.0, 1.0, 0.0}],
            Cras = If[goodRASFlag == 1, BinaryReadList[stream, "Real32", 3], {0.0, 0.0, 0.0}]},
           {Version -> version,
-           Dimensions -> {depth, height, width},
+           Dimensions -> {width, height, depth},
            Frames -> nframes,
            ImageBufferType -> type,
            DegreesOfFreedom -> dof,
@@ -423,11 +423,13 @@ ImportMGHFrames[stream_InputStream, opts___] := "Frames" -> Catch[
               Throw[$Failed]]];
             SetStreamPosition[stream, $MGHHeaderSize];
             Table[
-              Partition[
+              Transpose[
                 Partition[
-                  BinaryReadList[stream, type, volsz],
-                  dims[[3]]],
-                dims[[2]]],
+                  Partition[
+                    BinaryReadList[stream, type, volsz],
+                    dims[[1]]],
+                  dims[[2]]],
+                {3,2,1}],
               {nframes}]]]]]];
 ImportMGHFooter[stream_InputStream, opts___] := "OptionalData" -> Catch[
   Block[
@@ -631,7 +633,7 @@ ExportMGH[filename_, data_, opts___] := Block[
             BinaryWrite[fl, Flatten[Transpose[VOXToRASMatrix /. header][[All, 1;;3]]], "Real32"];
             BinaryWrite[fl, Table[0, {$MGHHeaderSize - StreamPosition[fl]}], "Integer8"];
             (* write frames... *)
-            BinaryWrite[fl, Flatten[frames], outtype];
+            BinaryWrite[fl, Flatten[Map[Transpose[#,{3,2,1}]&, frames]], outtype];
             (* Optional data is not currently supported; zeros are written *)
             Scan[BinaryWrite[fl, 0, #[[2]]]&, $MGHOptionalData];
             True]},
