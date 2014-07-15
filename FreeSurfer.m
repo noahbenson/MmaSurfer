@@ -1450,10 +1450,10 @@ SubjectRibbon[sub_String, hem:LH|RH] := With[
   {mgh = Check[
      Which[
        FileExistsQ[sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgz"], Import[
-         sub <> "/mri/" <> LowerCase[ToString[hem]] <> ".ribbon.mgz",
+         sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgz",
          {"GZip", "MGH"}],
        FileExistsQ[sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgh"], Import[
-         sub <> "/mri/" <> LowerCase[ToString[hem]] <> ".ribbon.mgh",
+         sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgh",
          "MGH"],
        True, Message[SubjectRibbon::notfound]],
      $Failed]},
