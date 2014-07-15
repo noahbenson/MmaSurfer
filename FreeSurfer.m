@@ -11,9 +11,11 @@
 BeginPackage["FreeSurfer`", {"CorticalSurface`", "CorticalVolume`"}];
 
 Unprotect[Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Surfaces, 
-          OptionalData, Header, HeaderComment, ImportedData, LookupTable];
+          OptionalData, Header, HeaderComment, ImportedData, LookupTable,
+          SetSurfaces, SetVolumes];
 ClearAll[ Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Surfaces, 
-          OptionalData, Header, HeaderComment, ImportedData, LookupTable];
+          OptionalData, Header, HeaderComment, ImportedData, LookupTable,
+          SetSurfaces, SetVolumes];
 Frames::usage = "Frames[mgh] yields the number of frames in an mgh object.";
 ImageBufferType::usage = "ImageBufferType[mgh] yields the image buffer type for the given mgh object.";
 DegreesOfFreedom::usage = "DegreesOfFreedom[mgh] yields the number of degrees of freedom of the given
@@ -33,6 +35,8 @@ ImportedData::usage = "ImportedData[object] yields the raw data that was importe
  applicable.";
 LookupTable::usage = "LookupTable[object] yields the color/label lookup table for an annotation
  object.";
+SetSurfaces::usage = "SetSurfaces[mgh, surf] sets the value of Surfaces[mgh] to be the given surf.";
+SetVolumes::usage = "SetVolumes[mgh, vol] sets the value of Volumes[mgh] to be the given vol.";
 Protect[  Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Surfaces, OptionalData,
           Header, HeaderComment, ImportedData];
 
@@ -136,9 +140,9 @@ SubjectQ::usage = "SubjectQ[directory] yields true if and only if directory is a
 
 (* Volume Functions *)
 Unprotect[SubjectSegments, SubjectSegments, SubjectBrain, SubjectWhiteMatter, SubjectFilledBrain,
-          SubjectHemisphere];
+          SubjectHemisphere, SubjectRibbon];
 ClearAll[ SubjectSegments, SubjectSegments, SubjectBrain, SubjectWhiteMatter, SubjectFilledBrain,
-          SubjectHemisphere];
+          SubjectHemisphere, SubjectRibbon];
 SubjectSegments::usage = "SubjectSegments[sub] yields an MGH object for subject sub whose values
  correspond to segments of the brain volume.";
 SubjectSegment::usage = "SubjectSegment[sub, label] yeids a list of indices at which the subject's
@@ -147,7 +151,7 @@ SubjectSegment::usage = "SubjectSegment[sub, label] yeids a list of indices at w
 SubjectSegment::badlbl = "Label given to SubjectSegment not found: `1`";
 SubjectBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's normalized brain
  (after skull stripping).";
-SubjectWhiteMatter::usage = "SubjectBrain[sub] yields the volume for the subject sub's white
+SubjectWhiteMatter::usage = "SubjectWhiteMattter[sub] yields the volume for the subject sub's white
  matter.";
 SubjectFilledBrain::usage = "SubjectFilledBrain[sub] yields the volume for the subject sub's brain
  in which the right hemisphere white matter has values of Left and the left hemisphere has
@@ -155,6 +159,9 @@ SubjectFilledBrain::usage = "SubjectFilledBrain[sub] yields the volume for the s
  specified RH -> 127 and LH -> 255 values.";
 SubjectHemisphere::usage = "SubjectHemisphere[sub, LH|RH] yields the volume for the subject sub's
  right or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
+SubjectRibbon::usage = "SubjectRibbon[sub, LH|RH] yields the volume for the subject sub's right
+ or left hemisphere ribbon (ie, the non-white matter).";
+SubjectRibbon::notfound = "Subject's ribbon file (?h.ribbon.mgz or ?h.ribbon.mgh) not found.";
 
 (* Surface Functions *)
 Unprotect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface,
@@ -543,16 +550,16 @@ ImportExport`RegisterImport[
   "BinaryFormat" -> True];
 
 (* Methods for setting an MGH object's data... *)
-Unprotect[Volumes, Surfaces];
-Volumes /: Set[Volumes[sym_], vol_] := Which[
-  !MGHQ[sym], (
-    Message[MGHObjectFromData::badfmt, "volumes symbol must be MGH object"];
-    $Failed),
+SetVolumes[sym_?MGHQ, vol_] := Which[
   !ListQ[vol] || Length[Dimensions[vol]] != 4, (
     Message[MGHObjectFromData::badfmt, "volumes must be a 4D list"];
     $Failed),
   True, (
     Evaluate[sym] /: Volumes[sym] = vol;
+    Evaluate[sym] /: ImportedData[sym] = Replace[
+      ImportedData[sym],
+      ((Rule|RuleDelayed)["Frames",_]) :> ("Frames" -> vol),
+      {1}];
     Evaluate[sym] /: Surfaces[sym] := TagSet[
       Evaluate[sym],
       Surfaces[sym],
@@ -560,21 +567,22 @@ Volumes /: Set[Volumes[sym_], vol_] := Which[
          Message[ImportMGH::wrongtype, "volume", "surface"]];
        Flatten /@ vol)];
     vol)];
-Surfaces /: Set[Surfaces[sym], vol_] := Which[
-  !MGHQ[sym], (
-    Message[MGHObjectFromData::badfmt, "volumes symbol must be MGH object"];
-    $Failed),
+SetSurfaces[sym_?MGHQ, vol_] := Which[
   !ListQ[vol] || Length[Dimensions[vol]] != 2, (
     Message[MGHObjectFromData::badfmt, "surfaces must be a 2D list"];
     $Failed),
   True, (
     Evaluate[sym] /: Surfaces[sym] = vol;
+    Evaluate[sym] /: ImportedData[sym] = Replace[
+      ImportedData[sym],
+      ((Rule|RuleDelayed)["Frames",_]) :> ("Frames" -> vol),
+      {1}];
     Evaluate[sym] /: Volumes[sym] := TagSet[
       Evaluate[sym],
       Volumes[sym],
       {{#}}& /@ vol];
     vol)];
-Protect[Volumes, Surfaces];
+Protect[SetVolumes, SetSurfaces];
 
 
 (* Exporting MGH files ****************************************************************************)
@@ -584,7 +592,10 @@ ExportMGH[filename_, data_, opts___] := Block[
   With[
     {dat = Which[
        MGHQ[data], 
-       ImportedData[data],
+       Replace[
+         ImportedData[data],
+         ("Frames" -> _) :> ("Frames" -> Volumes[data]),
+         {1}],
        Length[Union[Cases[data, (Rule|RuleDelayed)[("Header"|"Frames"),_], {1}][[All, 1]]]] > 1,
        data,
        ListQ[data] && 3 <= Length[Dimensions[data]] <= 4,
@@ -1433,7 +1444,20 @@ SubjectHemisphere[sub_String, hem:LH|RH] := Check[
     If[dat =!= $Failed,
       Set[SubjectHemisphere[sub, hem], VolumeMask[VolumeIndices[dat, hem], Dimensions[dat]]]]],
   $Failed];
-
+SubjectRibbon[sub_String, hem:LH|RH] := With[
+  {mgh = Check[
+     Which[
+       FileExistsQ[sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgz"], Import[
+         sub <> "/mri/" <> LowerCase[ToString[hem]] <> ".ribbon.mgz",
+         {"GZip", "MGH"}],
+       FileExistsQ[sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgh"], Import[
+         sub <> "/mri/" <> LowerCase[ToString[hem]] <> ".ribbon.mgh",
+         "MGH"],
+       True, Message[SubjectRibbon::notfound]],
+     $Failed]},
+  If[mgh === $Failed, 
+    $Failed,
+    Set[SubjectRibbon[sub, hem], First[Volumes[mgh]]]]];
 
 
 (* Subject Surface Data ***************************************************************************)
