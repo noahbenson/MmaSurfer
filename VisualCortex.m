@@ -37,6 +37,10 @@ VisualAngleToComplex::usage = "VisualAngleToComplex[polarAngle, eccentricity] yi
 ComplexToVisualAngle::usage = "ComplexToVisualAngle[z] yields a {polarAngle, eccentricity} pair that represents the visual angle coordinates represented by the complex number z. This complex  number should be of the form r * Exp[I * t] where t is between -Pi/2 and Pi/2.";
 ComplexToPolarAngle::usage = "ComplexToPolarAngle[z] yields the polar angle value that is represented by the complex number z. This complex number should be of the form r * Exp[I * t] where t is between -Pi/2 and Pi/2.";
 ComplexToEccentricity::usage = "ComplexToEccentricity[z] yields the eccentricity value that is represented by the complex number z. This complex number should be of the form r * Exp[I * t] where t is between -Pi/2 and Pi/2.";
+ComplexToCoordinate::usage = "ComplexToCoordinate[z] yields {Re[z], Im[z]} for a complex z and a list of such for a list of complex z.";
+CoordinateToComplex::usage = "CoordinateToComplex[{x,y}] yields x + I*y for real x and y.
+CoordinateToComplex[{{x1,y1},{x2,y2}...}] yields a list of zi = xi + yi*I.
+CoordinateToComplex[x, y] is equivalent to CoordinateToComplex[Thread[{x,y}]].";
 
 (* Visual Areas ***********************************************************************************)
 VisualAreaQ::usage = "VisualAreaQ[area] yields true if and only if area is a valid visual area id.";
@@ -81,6 +85,7 @@ $SchiraParameters::usage = "$SchiraParameters yields a list of the default param
 A::usage="The A parameter of the Schira model.";
 B::usage="The B parameter of the Schira model.";
 \[CapitalPsi]::usage="The rotation parameter of the Schira model.";
+\[CapitalLambda]::usage="The rotation parameter of the Schira model.";
 V1Size::usage="The parameter of the Schira model that determines the size of V1.";
 V2Size::usage="The parameter of the Schira model that determines the size of V2.";
 V3Size::usage="The parameter of the Schira model that determines the size of V3.";
@@ -101,6 +106,20 @@ SchiraFunction::badarg = "Bad argument given to Schira function: `1`";
 SchiraInverse::usage = "SchiraFunction[mdl] yields the inverse tranformation function for the
  given Schira model mdl. This is equivalent to mdl[Inverse].";
 SchiraInverse::badarg = "Bad argument given to Schira inverse function: `1`";
+CorticalMapToRetinotopy::usage = "CorticalMapToRetinotopy[model, map] yields a list of predictions, one per vertex in map, of the {polar angle, eccentricity, visual area} for the vertex in the given SchiraModelObject model. For any vertex that lies outside of the model's bounds, the absolute value of the visual area will be greater than 4. A list of vertices or a single vertex may also be substituted for map.
+CorticalMapToRetinotopy[model, X, Y] is equivalent to CorticalMapToRetinotopy[model, Thread[{X,Y}]].
+CorticalMapToRetinotopy[model] yields a pure curried function that may be called with map directly.";
+RetinotopyToCorticalMap::usage = "RetinotopyToCorticalMap[model, retinotopy] yields a list of 5 x 2 matrices, each row of which gives the {x, y} coordinate predictions for one of the visual areas. The result contains one such matrix for each retinotopic coordinate given. The retinotopy argument must be a list of {polarAngle, eccentricity}. The rows of each coordinate matrix returned represent, in order, the V1, V2, V3, HV4, and V3A predictions for the given retinotopic coordinate. A single retinotopy coordinate may be given, in which case, a single coordinate matrix is returned.
+RetinotopyToCorticalMap[model, polarAngles, eccentricities] is equivalent to RetinotopyToCorticalMap[model, Thread[{polarAngles, eccentricitie}]].
+RetinotopyToCorticalMap[model] yields a pure curried function that may be called with retinotopy directly.";
+
+PolarAngleLegend::usage = "PolarAngleLegend[hemi] yields a graphic that is appropriate for a polar angle legend. All options that are valid for DensityPlot can be passed.";
+EccentricityLegend::usage = "EccentricityLegend[hemi,max] yields a graphic that is appropriate for an eccentricity legend. All options that are valid for DensityPlot can be passed. The range is an optional argument that specifies the max eccentricity for this legend (default: 20)";
+
+SchiraParametricPlot::usage = "SchiraParametricPlot[mdl, options...] is equivalent to ParametricPlot[f[th,r], {th, thMin, thMax}, {r, rMin, rMax}, options] where f is the Schira function for the given SchiraModelObject mdl, and thMin, thMax, rMin, and rMax can be controlled via the additional option Range. The visual areas specified by the VisualAreas argument are plotted. The Range argument may be of the following forms: {thRange, rRange} or rRange where thRange must be {thMin, thMax} and rRange may be rMax (with rMin 0) or {rMin, rMax}.";
+SchiraParametricPlot::badarg = "Bad argument to SchiraParametricPlot: `1`";
+VisualAreas::usage = "VisualAreas is an optional keyword argument to the SchiraParametricPlot function. VisualAreas may be a list of any of {-4,-3,-2,-1,1,2,3,4}, which represent areas hV4, V3ventral, V2ventral, V1Ventral, V1Dorsal, V2Dorsal, V3Dorsal, V3A, respectively. The default value or Automatic will yield {-3,-2,-1,1,2,3}.";
+
 
 (**************************************************************************************************)
 (**************************************************************************************************)
@@ -116,11 +135,15 @@ VisualAngleToComplex[th_, r_] := r * Exp[I * (Pi/2 - th * Pi / 180)];
 ComplexToVisualAngle[z_] := {180/Pi * (Pi/2 - Arg[z]), Abs[z]};
 ComplexToPolarAngle[z_] := 180/Pi * (Pi/2 - Arg[z]);
 ComplexToEccentricity[z_] := Abs[z];
-SetAttribute[VisualAngleToComplex, Listable];
-SetAttribute[ComplexToVisualAngle, Listable];
-SetAttribute[ComplexToPolarAngle, Listable];
-SetAttribute[ComplexToEccentricity, Listable];
-Protect[VisualAngleToComplex, ComplexToVisualAngle, ComplexToPolarAngle, ComplexToEccentricity];
+ComplexToCoordinate[z_] := {Re[z],Im[z]};
+SetAttributes[ComplexToCoordinate, Listable];
+CoordinateToComplex[x_,y_] := x + I*y;
+CoordinateToComplex[xy_List] := Which[
+  Length[xy] == 0, {},
+  ListQ[First[xy]], With[{tr = Transpose[xy]}, tr[[1]] + I*tr[[2]]],
+  True, xy[[1]] + I * xy[[2]]];
+Protect[VisualAngleToComplex, ComplexToVisualAngle, ComplexToPolarAngle, ComplexToEccentricity,
+        CoordinateToComplex, ComplexToCoordinate];
 
 $VisualAreasData = {
   1  -> {"Name" -> "V1 Dorsal",  "Areas" -> {"V1"}, "Simple" -> 1, "Stream" -> "Dorsal"},
@@ -151,9 +174,9 @@ VisualAreaData[] := $VisualAreasData;
 VisualAreaData[id_] := Replace[id, $VisualAreasDispatch];
 VisualAreaName[id_] := Check[Replace["Name", Replace[id, $VisualAreasDispatch]], Indeterminate];
 VisualAreaSimplify[id_] := Check[Replace["Simple", Replace[id, $VisualAreasDispatch]], Indeterminate];
-SetAttribute[VisualAreaData, Listable];
-SetAttribute[VisualAreaName, Listable];
-SetAttribute[VisualAreaSimplify, Listable];
+SetAttributes[VisualAreaData, Listable];
+SetAttributes[VisualAreaName, Listable];
+SetAttributes[VisualAreaSimplify, Listable];
 Protect[$VisualAreasData, $VisualAreasDispatch, VisualAreaData, VisualAreaName, VisualAreaSimplify];
 
 (* Retinotopic Templates **************************************************************************)
@@ -603,6 +626,8 @@ ClearAll[SchiraModelObjectPrep];
 SchiraModelObjectPrep[params_List] := With[
   {ff = Unique["fun"],
    if = Unique["inv"],
+   prf = Unique["predictRetinotopy"],
+   prc = Unique["predictCoordinates"],
    a = params[[A /. $SchiraParameterPositions, 2]],
    b = params[[B /. $SchiraParameterPositions, 2]],
    lambda = params[[\[CapitalLambda] /. $SchiraParameterPositions, 2]],
@@ -643,6 +668,8 @@ SchiraModelObjectPrep[params_List] := With[
   (* Note that these are temporary variables *)
   SetAttributes[Evaluate[ff], Temporary];
   SetAttributes[Evaluate[if], Temporary];
+  SetAttributes[Evaluate[prf], Temporary];
+  SetAttributes[Evaluate[prc], Temporary];
   (* set these to auto-memoize themselves if requested *)
   ff := With[
     {f = Check[
@@ -655,14 +682,24 @@ SchiraModelObjectPrep[params_List] := With[
        $Failed]},
     If[f === $Failed, $Failed, (if = f)]];
   (* And make a dispatch for this model *)
-  SchiraModelObject[
-    Dispatch[
-      Join[
-        params,
-        {Function :> ff,
-         Inverse :> if,
-         All :> params,
-         x_ :> Message[SchiraModelObject::badarg, x]}]]]];
+  With[
+    {mdl = SchiraModelObject[
+      Dispatch[
+        Join[
+          params,
+          {Function :> ff,
+           Inverse :> if,
+           CorticalMapToRetinotopy :> prf,
+           RetinotopyToCorticalMap :> prc,
+           All :> params,
+           x_ :> Message[SchiraModelObject::badarg, x]}]]]},
+    prf := With[
+      {res = Check[CorticalMapToRetinotopy[mdl], $Failed]},
+      If[res === $Failed, res, (prf = res)]];
+    prc := With[
+      {res = Check[RetinotopyToCorticalMap[mdl], $Failed]},
+      If[res === $Failed, res, (prf = res)]];
+    mdl]];
 Protect[SchiraModelObjectPrep];
 
 SchiraModel[
@@ -704,7 +741,179 @@ SchiraModelObject[disp_][x_] := Replace[x, disp];
 SchiraFunction[SchiraModelObject[disp_]] := Replace[Function, disp];
 SchiraInverse[SchiraModelObject[disp_]] := Replace[Inverse, disp];
 
-Protect[SchiraModel, SchiraModelObject, SchiraFunction, SchiraInverse];
+CorticalMapToRetinotopy[SchiraModelObject[disp_], map_?MapQ] := With[
+  {inv = Replace[Inverse, disp],
+   Z = Transpose[Vertices[map]]},
+  Map[
+    Append[ComplexToVisualAngle[#[[1]]], #[[2]]]&,
+    inv[Z[[1]] + I * Z[[2]]]]];
+CorticalMapToRetinotopy[SchiraModelObject[disp_], {x:Except[_List], y:Except[_List]}] := With[
+  {inv = Replace[Inverse, disp]},
+  With[
+   {z = inv[x + I*y]},
+   Append[ComplexToVisualAngle[z[[1]]], z[[2]]]]];
+CorticalMapToRetinotopy[SchiraModelObject[disp_], coords:{{_,_}..}] := With[
+  {inv = Replace[Inverse, disp],
+   Z = Transpose[coords]},
+  Map[
+    Append[ComplexToVisualAngle[#[[1]]], #[[2]]]&,
+    inv[Z[[1]] + I * Z[[2]]]]];
+CorticalMapToRetinotopy[SchiraModelObject[disp_], X_, Y_] := With[
+  {inv = Replace[Inverse, disp]},
+  With[
+    {res = inv[X + I*Y]},
+    If[ListQ[First@res],
+      Append[ComplexToVisualAngle[#[[1]]], #[[2]]]& /@ res,
+      Append[ComplexToVisualAngle[res[[1]], res[[2]]]]]]];
+CorticalMapToRetinotopy[mdl_SchiraModelObject] := Function[CorticalMapToRetinotopy[mdl, ##]];
+
+RetinotopyToCorticalMap[SchiraModelObject[disp_], retinotopy:{{_,_}..}] := With[
+  {fun = Replace[Function, disp],
+   tr = Transpose[retinotopy]},
+  ComplexToCoordinate[fun[VisualAngleToComplex[tr[[1]], tr[[2]]]]]];
+RetinotopyToCorticalMap[
+  SchiraModelObject[disp_],
+  {polarAngle:Except[_List], eccentricity:Except[_List]}
+ ] := With[
+  {fun = Replace[Function, disp]},
+  ComplexToCoordinate[fun[VisualAngleToComplex[polarAngle, eccentricity]]]];
+RetinotopyToCorticalMap[SchiraModelObject[disp_], polarAngles_, eccentricities_] := With[
+  {fun = Replace[Function, disp]},
+  ComplexToCoordinate[fun[VisualAngleToComplex[polarAngles, eccentricities]]]];
+RetinotopyToCorticalMap[mdl_SchiraModelObject] := Function[RetinotopyToCorticalMap[mdl, ##]];
+
+Protect[SchiraModel, SchiraModelObject, SchiraFunction, SchiraInverse,
+        CorticalMapToRetinotopy, RetinotopyToCorticalMap];
+
+(* Plotting Data **********************************************************************************)
+With[
+  {angleColors = {Blue, Darker[Cyan, 1/6], Darker@Green, Darker[Yellow, 1/6], Red},
+   eccenColors = Join[
+    {Black, Purple, Red, Yellow, Green},
+    Table[Blend[{Green, Cyan}, (u - 20.0)/20.0], {u, 25, 40, 5}],
+    Table[Blend[{Cyan, White}, (u - 40.0)/50.0], {u, 45, 90, 5}]]},
+CorticalColor[{PolarAngle,LH}] = {{0,180}, angleColors};
+CorticalColor[{PolarAngle,RH}] = {{-180,0}, Reverse[angleColors]};
+CorticalColor[PolarAngle] = {{-180,180}, Join[Reverse[angleColors],Rest[angleColors]]};
+CorticalColor[Eccentricity] = {{0,90}, eccenColors};];
+
+PolarAngleLegend[hemi : (LH|RH), opts___Rule] := DensityPlot[
+  If[hemi === LH, ArcTan[x, y], ArcTan[90 - x, y]],
+  {x, 0, 90},
+  {y, -90, 90},
+  opts,
+  RegionFunction -> If[hemi === LH, (Norm[{#1, #2}] < 90 &), (Norm[{90 - #1, #2}] < 90 &)],
+  ColorFunctionScaling -> False,
+  ColorFunction -> With[{f = ColorCortex[PolarAngle]}, (f[90.0 - #*180.0/Pi]) &],
+  Frame -> False,
+  Axes -> False,
+  BaseStyle -> Directive[10, FontFamily -> "Arial"],
+  ImageSize -> 1.25*72,
+  AspectRatio -> 2,
+  Background -> White];
+
+EccentricityLegend[hemi : (LH | RH), max_?NumericQ /; 0 < max <= 90, opts___Rule] := DensityPlot[
+  If[hemi === LH, Norm[{x, y}], Norm[{max - x, y}]],
+  {x, 0, max},
+  {y, -max, max},
+  opts,
+  RegionFunction -> If[hemi === LH, (Norm[{#1, #2}] < max &), (Norm[{max - #1, #2}] < max &)],
+  ColorFunctionScaling -> False,
+  ColorFunction -> ColorCortex[Eccentricity],
+  Frame -> False,
+  Axes -> False,
+  BaseStyle -> Directive[10, FontFamily -> "Arial"],
+  ImageSize -> 1.25*72,
+  AspectRatio -> 2,
+  Background -> White];
+
+Options[SchiraParametricPlot] = Join[
+   Options[ParametricPlot],
+   {VisualAreas -> Automatic,
+    Range -> Full}];
+SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
+  Catch[
+    With[
+    {epsilon = 0.000001,
+     plotRangeArg = OptionValue[PlotRange],
+     colorFun = OptionValue[ColorFunction],
+     colorFunSc = OptionValue[ColorFunctionScaling],
+     areas = Union@Replace[
+        OptionValue[VisualAreas],
+        {All -> {-4, -3, -2, -1, 1, 2, 3, 4},
+         Automatic -> {-3, -2, -1, 1, 2, 3},
+         i_Integer /; -5 < i < 5 && i != 0 :> {i},
+         l_List /; Length[l] ==  Count[l, i_Integer /; -5 < i < 5 && i != 0, {1}] :> Union[l],
+         _ :> Message[
+           SchiraParametricPlot::badarg,
+           "VisualAreas must be All, one of +/- {1,2,3,4}, or a list of such integers"]}],
+     f = mdl[RetinotopyToCorticalMap],
+     range = Replace[
+       OptionValue[Range],
+       {(All | Full | Automatic) -> {{0, 180}, {0, 90}},
+        r : {{_, _}, {_, _}} :> r,
+        {t : {_, _}, r : Except[{_, _}]} :> {t, {0, r}},
+        {t : {_, _}, (All | Full | Automatic)} :> {t, {0, 90}},
+        {(All | Full | Automatic), r : {_, _}} :> {{0, 180}, r},
+        {(All | Full | Automatic), 
+          r : Except[{_, _}]} :> {{0, 180}, {0, r}},
+        r_ :> {{0, 180}, {0, r}}}]},
+    With[
+      {msg = Which[
+         ! NumericQ[range[[1, 1]]], "theta-min must be a number",
+         ! NumericQ[range[[1, 2]]], "theta-max must be a number",
+         ! NumericQ[range[[2, 1]]], "rho-min must be a number",
+         ! NumericQ[range[[2, 2]]], "rho-max must be a number",
+         ! (0 <= range[[1, 1]] < range[[1, 2]]), "theta-min must be in [0,theta-max)",
+         range[[1, 2]] > 180, "theta-max must be in (theta-min,180]",
+         ! (0 <= range[[2, 1]] < range[[2, 2]]), "rho-min must be in [0,rho-max)",
+         range[[2, 2]] > 90, "rho-max must be in (rho-min,90]",
+         True, None]},
+      If[StringQ[msg], (Message[SchiraParametricPlot::badarg, msg]; Throw[$Failed])]];
+    With[
+     {optseq = Sequence @@ FilterRules[
+        {opts},
+        ReplacePart[Options[ParametricPlot], {All, 2} -> _]],
+      optseqShow = Sequence @@ FilterRules[
+        {opts},
+        ReplacePart[Options[Show], {All, 2} -> _]],
+      rhoTrans = Function[{rho}, 90.0*rho^3.5],
+      thetaLower = If[range[[1, 1]] > 90,
+        None,
+        {range[[1, 1]], Min[{90, range[[1, 2]]}]}],
+      thetaUpper = If[range[[1, 2]] < 90,
+        None,
+        {Max[{90, range[[1, 1]]}], range[[1, 2]]}]},
+     With[
+       {graphics = Map[
+          Function[
+            With[
+              {k = Which[# == -4, 4, # == 4, 5, True, Abs[#]],
+               thetaMinIdeal = If[# == 4 || # < 0, thetaLower[[1]], thetaUpper[[1]]],
+               thetaMaxIdeal = If[# == -4 || # > 0, thetaUpper[[2]], thetaLower[[2]]]},
+              With[
+                {thetaMin = If[# == 2 || # == 3, Max[{thetaMinIdeal, 90.0 + epsilon}], thetaMinIdeal],
+                 thetaMax = If[# == -3 || # == -2, Min[{thetaMaxIdeal, 90 - epsilon}], thetaMaxIdeal]},
+              ParametricPlot[
+                Part[f[theta, rhoTrans[rho]], k],
+                {theta, thetaMin, thetaMax},
+                {rho, 0, 1},
+                PlotRange -> plotRangeArg,
+                ColorFunction -> If[colorFun === Automatic || StringQ[colorFun], 
+                  colorFun,
+                  If[colorFunSc === False,
+                    Function[colorFun[#1,#2,#3,rhoTrans[#4]]],
+                    Function[colorFun[#1,#2,#3,rhoTrans[#4]/90.0]]]],
+                optseq]]]],
+          areas]},
+       With[
+         {plotRange = With[
+            {ranges = Cases[AbsoluteOptions /@ graphics, (PlotRange -> r_) :> r, {2}]},
+         {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
+          {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]},
+         Show[graphics, PlotRange -> plotRange, optseqShow]]]]]];
+
+Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas];
 
 End[];
 EndPackage[];
