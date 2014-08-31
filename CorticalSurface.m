@@ -102,8 +102,10 @@ SurfaceReplace::usage = "SurfaceReplace[surf, rules] yields a new surface identi
 SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but such that the field of the surface has been resampled from surf1. All options except the Field option of CorticalSurface are accepted and passed verbatim; a Method option may also specify Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for their respective functions. In the latter two cases, A list may be given instead of the argument such that the first argument is Interpolation or LitInterpolation and the remaining elements of the list are options to pass to these functions; e.g. Method -> {Interpolation, InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2] but self-hashes.";
 
 SurfaceNeighborhoods::usage = "SurfaceNeighborhoods[surf] yields a list of length N (where N is the number of vertices in surf) of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis.";
+MapNeighborhoods::usage = "MapNeighborhoods[map] yields a list of length N (where N is the number of vertices in map of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis.";
 
 SurfaceEdges::usage = "SurfaceEdges[surf] yields a list of all edges in Faces[surf] such that each edge is listed exactly once as {u,v} where u < v.";
+MapEdges::usage = "MapEdges[map] yields a list of all edges in Faces[map] such that each edge is listed exactly once as {u,v} where u < v.";
 
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
@@ -790,6 +792,39 @@ Rule[a_?SurfaceQ, b_?SurfaceQ] := With[
   res];
 Protect[Rule];*)
 
+(* #MapEdges **************************************************************************************)
+MapEdges[map_?MapQ] := Union[
+  Map[
+    Sort,
+    Flatten[Map[Subsets[#,{2}]&, Faces[map]], 1]]];
+
+(* #MapNeighborhoods ******************************************************************************)
+MapNeighborhoods[map_?MapQ] := With[
+  {V = Vertices[map]},
+  Last[
+    Reap[
+      Scan[
+        Function[{face},
+          Scan[
+            Function[{pair},
+              Sow[pair[[1]], pair[[2]]];
+              Sow[pair[[2]], pair[[1]]]],
+            Subsets[face, {2}]]],
+        Faces[map]],
+      Range[Length[V]],
+      Function[{id, neighbors},
+        Apply[
+          Sequence,
+          With[
+            {neis = Union[neighbors]},
+            With[
+              {U = Dot[
+                V[[neis]], 
+                Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]
+               ][[All, 1;;2]]},
+              SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]];
+
+
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
 Vertices[Rule[f_?FieldQ, s_?SurfaceQ]] := Vertices[s];
@@ -884,7 +919,7 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
         CorticalSurface, CorticalSurfaceFromVTK, Domain,
         DomainIndices, Duplicate, Faces, Field, FieldQ, Filter,
         InverseProjectionDispatch, InverseProjectionTransform,
-        Latitude, Longitude, MapPlot, MapQ, MergeSurfaces,
+        Latitude, Longitude, MapEdges, MapNeighborhoods, MapPlot, MapQ, MergeSurfaces,
         OrientMatrix, OrientPoint, SphericalPolarAngle, Polygons,
         ProjectionDispatch, ProjectionRotation, ProjectionShear,
         ProjectionTransform, Radius, ReadVTK,
