@@ -105,6 +105,13 @@ SurfaceNeighborhoods::usage = "SurfaceNeighborhoods[surf] yields a list of lengt
 
 SurfaceEdges::usage = "SurfaceEdges[surf] yields a list of all edges in Faces[surf] such that each edge is listed exactly once as {u,v} where u < v.";
 
+ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
+New cortical colors can be added by interfacing with the CorticalColor form.";
+CorticalColor::usage = "CorticalColor[tag] yields the cortical color instruction for the given tag. The CorticalColor form is only partially protected and may be assigned single-argument values such as CorticalColor[\"MyCustomColorScheme\"] = {{0,10}, {Red,Yellow,Green,Cyan}}. In this example, the color instruction \"MyCustomColorScheme\" would then be valid, and would blend the given colors over the range 0 to 10. A Function may also be given as the value, in which case the function is given the field value and expected to yield a color.
+See also ColorCortex.";
+
+Curvature::usage = "Curvature is a keyword that can be used to refer to curvature values; it is automatically defined by the CorticalSurface package to include a CorticalColor function as well.";
+
 (**************************************************************************************************)
 Begin["`Private`"];
 
@@ -885,6 +892,68 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical, ConvertCoordinates,
         SurfaceCases, SurfaceMap, SurfacePlot, SurfaceProjection,
         SurfaceQ, SurfaceReplace, SurfaceRotation, SurfaceResample,
         SurfaceSelect, ToField, Vertices, WithField, WithFilter];
+
+ColorCortex[instructions___] := Block[{tmp},
+   With[
+    {ord = Join @@ Append[
+      Map[
+        Function[
+          Replace[
+            #,
+            Hold[param_, call_] :> Hold[             
+              param =!= None && param =!= $Failed && (tmp = call) =!= None && tmp =!= $Failed,
+              tmp]]],
+        Replace[
+          Hold[instructions],
+          {Rule[idx_Integer, instr_] :> With[
+             {cc = CorticalColor[instr]},
+             If[ListQ[cc],
+               With[
+                 {min = cc[[1, 1]], max = cc[[1, 2]], clrs = cc[[2]]},
+                 Hold[
+                   Part[Slot[1], idx],
+                   If[ListQ[Slot[1]] && Length[Slot[1]] >= idx && NumericQ[Part[Slot[1], idx]],
+                     Blend[clrs, Rescale[Part[Slot[1], idx], {min, max}]],
+                    $Failed]]],
+               Hold[
+                 Part[Slot[1], idx],
+                 If[ListQ[Slot[1]] && Length[Slot[1]] >= idx,
+                   cc[Part[Slot[1], idx]],
+                   $Failed]]]],
+           instr_ :> With[
+             {cc = CorticalColor[instr]},
+             If[ListQ[cc],
+               With[
+                 {min = cc[[1, 1]], max = cc[[1, 2]], clrs = cc[[2]]},
+                 Hold[
+                   Slot[1],
+                   If[NumericQ[Slot[1]],
+                     Blend[clrs, Rescale[Slot[1], {min, max}]],
+                     $Failed]]],
+               Hold[
+                 Slot[1],
+                 cc[Slot[1]]]]]},
+          {1}]],
+      Hold[True, Gray]]},
+    Function @@ Replace[
+      ord,
+      Hold[body__] :> Hold[Module[{tmp}, Which[body]]]]]];
+
+Curvature = Curvature;
+CorticalColor[Curvature] = Function[If[# < -0.02, GrayLevel[0.55], GrayLevel[0.2]]];
+
+(* We have a sneaky way of setting cortical colors that allows it to be still protected. *)
+SetCorticalColor[arg_, val_] := (
+  Unprotect[CorticalColor];
+  CorticalColor /: Set[CorticalColor[a_], v_] =.;
+  Set[CorticalColor[arg], val];
+  CorticalColor /: Set[CorticalColor[a_], v_] := SetCorticalColor[a, v];
+  Protect[CorticalColor];
+  CorticalColor[arg]);
+Attributes[SetCorticalColor] = Attributes[Set];
+CorticalColor /: Set[CorticalColor[a_], v_] := SetCorticalColor[a, v];
+
+Protect[CorticalColor, ColorCortex, Curvature];
 
 End[];
 EndPackage[];

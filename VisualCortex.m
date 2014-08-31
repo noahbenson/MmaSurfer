@@ -100,11 +100,9 @@ SchiraModel::badarg = "Bad argument(s); all arguments must be rules: `1`";
 SchiraModel::badarea = "Bad area given to Schira function; areas must be 1, 2, 3, or 4.";
 SchiraModelObject::usage = "A SchiraModelObject form stores the data for a Schira model.";
 SchiraModelObject::badarg = "Unrecognized SchiraModelObject argument: `1`";
-SchiraFunction::usage = "SchiraFunction[mdl] yields the forward tranformation function for the
- given Schira model mdl. This is equivalent to mdl[Function].";
+SchiraFunction::usage = "SchiraFunction[mdl] yields the forward tranformation function for the given Schira model mdl. This is equivalent to mdl[Function].";
 SchiraFunction::badarg = "Bad argument given to Schira function: `1`";
-SchiraInverse::usage = "SchiraFunction[mdl] yields the inverse tranformation function for the
- given Schira model mdl. This is equivalent to mdl[Inverse].";
+SchiraInverse::usage = "SchiraFunction[mdl] yields the inverse tranformation function for the given Schira model mdl. This is equivalent to mdl[Inverse].";
 SchiraInverse::badarg = "Bad argument given to Schira inverse function: `1`";
 CorticalMapToRetinotopy::usage = "CorticalMapToRetinotopy[model, map] yields a list of predictions, one per vertex in map, of the {polar angle, eccentricity, visual area} for the vertex in the given SchiraModelObject model. For any vertex that lies outside of the model's bounds, the absolute value of the visual area will be greater than 4. A list of vertices or a single vertex may also be substituted for map.
 CorticalMapToRetinotopy[model, X, Y] is equivalent to CorticalMapToRetinotopy[model, Thread[{X,Y}]].
@@ -120,6 +118,18 @@ SchiraParametricPlot::usage = "SchiraParametricPlot[mdl, options...] is equivale
 SchiraParametricPlot::badarg = "Bad argument to SchiraParametricPlot: `1`";
 VisualAreas::usage = "VisualAreas is an optional keyword argument to the SchiraParametricPlot function. VisualAreas may be a list of any of {-4,-3,-2,-1,1,2,3,4}, which represent areas hV4, V3ventral, V2ventral, V1Ventral, V1Dorsal, V2Dorsal, V3Dorsal, V3A, respectively. The default value or Automatic will yield {-3,-2,-1,1,2,3}.";
 
+SchiraLinePlot::usage = "SchiraLinePlot[mdl,options...] is equivalent to calling ParametricPlot[] with the given options, but such that the first arguments are optimized to draw polar angle and eccentricity lines from the given SchiraModelObject mdl. The following additional parameters may be given:
+PolarAngleLines gives the polar angle values at which to daw iso-eccentric lines.
+EccentricityLines gives the eccentricity values at which to draw iso-angular lines.
+PolarAngleStyleFunction gives a function that, given a polar angle value, yields the style instruction for that polar angle line.
+EccentricityFunction gives a function that, given a polar angle value, yields the style instruction for that polar angle line.
+VisualAreas is used as in SchiraParametricPlot.
+Range is used as in SchiraParametricPlot.";
+SchiraLinePlot::badarg = "Bad argument to SchiraLinePlot: `1`";
+PolarAngleLines::usage = "PolarAngleLines is an option to SchiraLinePlot that specifies the polar angle values at which to draw the iso-eccentric lines.";
+EccentricityLines::usage = "EccentricityLines is an option to SchiraLinePlot that specifies the eccentricity values at which to draw the iso-angular lines.";
+PolarAngleStyleFunction::usage = "PolarAngleStyleFunction is an option to SchiraLinePlot that must accept a polar angle value and yield the style directive for plotting that angle's iso-eccentric line. The value Automatic results in ColorCortex[PolarAngle] beign used. The values Thick, Dashed, Dotted, etc. will result in the same coloring schele with the option directive appended.";
+EccentricityStyleFunction::usage = "EccentricityStyleFunction is an option to SchiraLinePlot that must accept an eccentricity value and yield the style directive for plotting that eccentricity's iso-angular line. The value Automatic results in ColorCortex[Eccentricity] beign used. The values Thick, Dashed, Dotted, etc. will result in the same coloring schele with the option directive appended.";
 
 (**************************************************************************************************)
 (**************************************************************************************************)
@@ -478,6 +488,8 @@ CompileSchiraFunction[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := 
      dsech1 = 0.1821,
      dsech2 = 0.76,
      fcx0 = N[Log[(a + lambda) / (b + lambda)]],
+     xscale = If[NumberQ[scale], scale, scale[[1]]],
+     yscale = If[NumberQ[scale], scale, scale[[2]]],
      mtx = MapThread[
        Append,
        {Dot[
@@ -518,7 +530,7 @@ CompileSchiraFunction[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := 
           (* We center the FC on zero to start, by subtracting fcx0, then we scale and shear, and,
              last, we push things back to the specified FC *)
           Flatten@Dot[
-            {{1.0, I}},
+            {{xscale, I*yscale}},
             mtx,
             (* Note that we flip the z here so that the arrangement matchis the LH *)
             {Re[zLogPolar] - fcx0, -Im[zLogPolar], {1.0, 1.0, 1.0, 1.0, 1.0}}]]],
@@ -538,6 +550,8 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
      dsech2 = 0.76,
      tol = 0.000001,
      fcx0 = N[Log[(a + lambda) / (b + lambda)]],
+     xscale = If[NumberQ[scale], scale, scale[[1]]],
+     yscale = If[NumberQ[scale], scale, scale[[2]]],
      mtx = MapThread[
        Append,
        {Dot[
@@ -570,7 +584,7 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
                   b + absz * Exp[I * argz * Sech[argz]^(dsech1 * Sech[dsech2*Log[absz/b]])]]]]},
            (* We center the FC on zero to start, by subtracting fcx0, then we scale and shear, 
               and, last, we push things back to the specified FC *)
-           First@Dot[{{1.0, I}}, mtx, {Re[ztr] - fcx0, Im[ztr], 1.0}]],
+           First@Dot[{{xscale, I*yscale}}, mtx, {Re[ztr] - fcx0, Im[ztr], 1.0}]],
          RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
          Parallelization -> True,
          RuntimeAttributes -> {Listable}]},
@@ -628,14 +642,15 @@ SchiraModelObjectPrep[params_List] := With[
    if = Unique["inv"],
    prf = Unique["predictRetinotopy"],
    prc = Unique["predictCoordinates"],
-   a = params[[A /. $SchiraParameterPositions, 2]],
-   b = params[[B /. $SchiraParameterPositions, 2]],
-   lambda = params[[\[CapitalLambda] /. $SchiraParameterPositions, 2]],
-   psi = params[[\[CapitalPsi] /. $SchiraParameterPositions, 2]] /. None -> 0,
-   shearMtx = params[[Shear /. $SchiraParameterPositions, 2]] /. None -> {{1,0},{0,1}},
-   scale = Replace[params[[Scale /. $SchiraParameterPositions, 2]], x_?NumericQ :> {x,x}],
-   fc = Replace[params[[FC /. $SchiraParameterPositions, 2]], z_Complex :> {Re[x], Im[z]}],
-   areas = params[[{V1Size, V2Size, V3Size, HV4Size, V3ASize} /. $SchiraParameterPositions, 2]]},
+   a = A /. params,
+   b = B /. params,
+   lambda = \[CapitalLambda] /. params,
+   areas = {V1Size, V2Size, V3Size, HV4Size, V3ASize} /. params,
+   (* These we may change so have to update in params *)
+   psi = (\[CapitalPsi] /. params) /. None -> 0,
+   shearMtx = (Shear /. params) /. None -> {{1,0},{0,1}},
+   scale = Replace[Scale /. params, x_?NumericQ :> {x,x}],
+   fc = Replace[FC /. params, z_Complex :> {Re[x], Im[z]}]},
   (* sanity checking *)
   Which[
     !NumericQ[a] || a <= 0, Message[SchiraModelObject::badarg, "A must be numeric and > 0"],
@@ -686,8 +701,12 @@ SchiraModelObjectPrep[params_List] := With[
     {mdl = SchiraModelObject[
       Dispatch[
         Join[
-          params,
-          {Function :> ff,
+          Cases[params, Except[Rule[\[CapitalPsi]|Shear|Scale|FC,_]|RuleDeayed[\[CapitalPsi]|Shear|Scale|FC,_]]],
+          {\[CapitalPsi] -> psi,
+           Shear -> shearMtx,
+           Scale -> scale,
+           FC -> fc,
+           Function :> ff,
            Inverse :> if,
            CorticalMapToRetinotopy :> prf,
            RetinotopyToCorticalMap :> prc,
@@ -732,7 +751,7 @@ SchiraModel[
     Map[
       Function[{rule},
         Rule[
-          (Rule|DelayedRule)[First[rule], _],
+          (Rule|RuleDelayed)[First[rule], _],
           Head[rule][First[rule], Last[rule]]]],
         {opts}]]];
 SchiraModel[] := SchiraModelObjectPrep[$SchiraParameters];
@@ -893,13 +912,14 @@ SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
                thetaMaxIdeal = If[# == -4 || # > 0, thetaUpper[[2]], thetaLower[[2]]]},
               With[
                 {thetaMin = If[# == 2 || # == 3, Max[{thetaMinIdeal, 90.0 + epsilon}], thetaMinIdeal],
-                 thetaMax = If[# == -3 || # == -2, Min[{thetaMaxIdeal, 90 - epsilon}], thetaMaxIdeal]},
+                 thetaMax = If[# == -3 || # == -2, Min[{thetaMaxIdeal, 90.0 - epsilon}], thetaMaxIdeal]},
               ParametricPlot[
                 Part[f[theta, rhoTrans[rho]], k],
                 {theta, thetaMin, thetaMax},
                 {rho, 0, 1},
                 PlotRange -> plotRangeArg,
-                ColorFunction -> If[colorFun === Automatic || StringQ[colorFun], 
+                ColorFunction -> If[
+                  colorFun === Automatic || colorFun === None || colorFun === False || StringQ[colorFun], 
                   colorFun,
                   If[colorFunSc === False,
                     Function[colorFun[#1,#2,#3,rhoTrans[#4]]],
@@ -913,7 +933,185 @@ SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
           {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]},
          Show[graphics, PlotRange -> plotRange, optseqShow]]]]]];
 
-Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas];
+
+EccentricityStyleFunction = EccentricityStyleFunction;
+PolarAngleStyleFunction = PolarAngleStyleFunction;
+EccentricityLines = EccentricityLines;
+PolarAngleLines = PolarAngleLines;
+
+Options[SchiraLinePlot] = Join[
+  FilterRules[Options[ParametricPlot], Except[PlotStyle | ColorFunction | ColorFunctionScaling]],
+  {EccentricityStyleFunction -> Automatic,
+   PolarAngleStyleFunction -> Automatic,
+   EccentricityLines -> Automatic,
+   PolarAngleLines -> Automatic,
+   VisualAreas -> Automatic,
+   Range -> Full}];
+SchiraLinePlot[mdl_SchiraModelObject, opts : OptionsPattern[]] := Catch[
+  With[
+    {epsilon = 0.000001,
+     plotRangeArg = OptionValue[PlotRange],
+     areas = Union@Replace[
+        OptionValue[VisualAreas],
+        {All -> {-4, -3, -2, -1, 1, 2, 3, 4},
+         Automatic -> {-3, -2, -1, 1, 2, 3},
+         i_Integer /; -5 < i < 5 && i != 0 :> {i},
+         l_List /; Length[l] == Count[l, i_Integer /; -5 < i < 5 && i != 0, {1}] :> Union[l],
+         _ :> Message[
+           SchiraLinePlot::badarg, 
+           "VisualAreas must be All, one of +/- {1,2,3,4}, or a list of such integers"]}],
+     f = mdl[RetinotopyToCorticalMap], 
+     range = Replace[
+       OptionValue[Range],
+       {(All | Full | Automatic) -> {{0, 180}, {0, 90}},
+        r : {{_, _}, {_, _}} :> r,
+        {t : {_, _}, r : Except[{_, _}]} :> {t, {0, r}},
+        {t : {_, _}, (All | Full | Automatic)} :> {t, {0, 90}},
+        {(All | Full | Automatic), r : {_, _}} :> {{0, 180}, r},
+        {(All | Full | Automatic), 
+        r : Except[{_, _}]} :> {{0, 180}, {0, r}},
+        r_ :> {{0, 180}, {0, r}}}],
+     esf = Replace[
+       OptionValue[EccentricityStyleFunction],
+       x : (Automatic | Thick | Thin | Dotted | Dashed) :> With[
+         {clr = ColorCortex[Eccentricity]},
+         If[x === Automatic, clr, {x, clr[#]} &]]],
+     psf = Replace[
+       OptionValue[PolarAngleStyleFunction],
+       x : (Automatic | Thick | Thin | Dotted | Dashed) :> With[
+         {clr = ColorCortex[PolarAngle]},
+         If[x === Automatic, clr, {x, clr[#]} &]]],
+     eclines = Replace[
+       OptionValue[EccentricityLines],
+       {None -> {},
+        x_?NumberQ :> {x},
+        Automatic -> {1.25, 2.5, 5.0, 10.0, 20.0, 40.0, 90.0}}],
+     palines = Replace[
+       OptionValue[PolarAngleLines],
+       {None -> {},
+        x_?NumberQ :> {x},
+        Automatic -> {0.0, 45.0, 90.0, 135.0, 180.0}}]},
+    With[
+      {msg = Which[
+         ! NumericQ[range[[1, 1]]], "theta-min must be a number",
+         ! NumericQ[range[[1, 2]]], "theta-max must be a number",
+         ! NumericQ[range[[2, 1]]], "rho-min must be a number",
+         ! NumericQ[range[[2, 2]]], "rho-max must be a number",
+         ! (0 <= range[[1, 1]] < range[[1, 2]]), "theta-min must be in [0,theta-max)",
+         range[[1, 2]] > 180, "theta-max must be in (theta-min,180]",
+         ! (0 <= range[[2, 1]] < range[[2, 2]]), "rho-min must be in [0,rho-max)",
+         range[[2, 2]] > 90, "rho-max must be in (rho-min,90]",
+         True, None]},
+      If[StringQ[msg], (Message[SchiraLinePlot::badarg, msg]; Throw[$Failed])]];
+    With[
+     {optseq = Sequence @@ FilterRules[
+        {opts},
+        ReplacePart[Options[ParametricPlot], {All, 2} -> _]],
+      optseqShow = Sequence @@ FilterRules[
+        {opts},
+        ReplacePart[Options[Show], {All, 2} -> _]],
+      rhoTrans = 
+       Function[{rho}, 
+        range[[2, 1]] + (range[[2, 2]] - range[[2, 1]])*rho^3.5], 
+      thetaLower = If[range[[1, 1]] > 90, None, {range[[1, 1]], Min[{90, range[[1, 2]]}]}], 
+      thetaUpper = If[range[[1, 2]] < 90, None, {Max[{90, range[[1, 1]]}], range[[1, 2]]}],
+      angLines = Replace[
+        areas,
+        {(-4 | 4) :> palines,
+         (-3 | -2) :> 
+           Select[palines, # <= 90 &] /. (90|90.0 -> 90.0 - epsilon),
+         -1 :> Select[palines, # <= 90 &],
+         (2 | 3) :> 
+           Select[palines, # >= 90 &] /. (90|90.0 -> 90.0 + epsilon),
+         1 -> Select[palines, # >= 90 &]},
+        {1}],
+      eccLines = Table[eclines, {Length@areas}]},
+     With[
+       {areaIdcs = Which[# == -4, 4, # == 4, 5, True, Abs[#]] & /@ areas,
+        thetaMinIdeals = If[# == 4 || # < 0, thetaLower[[1]], thetaUpper[[1]]] & /@ areas,
+        thetaMaxIdeals = If[# == -4 || # > 0, thetaUpper[[2]], thetaLower[[2]]] & /@ areas},
+       With[
+         {thetaMins = MapThread[
+            Function[
+              If[#1 == 2 || #1 == 3, 
+                Max[{#2, 90.0 + epsilon}], 
+                #2]], 
+            {areas, thetaMinIdeals}], 
+          thetaMaxs = MapThread[
+            Function[
+              If[#1 == -3 || #1 == -2, 
+                Min[{#2, 90.0 - epsilon}], 
+                #2]],
+            {areas, thetaMaxIdeals}]},
+         With[
+           {angPrep = Flatten[
+              MapThread[
+                Function[{lines, idx},
+                  Map[
+                    Function[
+                      {ReplacePart[
+                         Hold @@ {
+                           Hold[
+                             Evaluate[#1],
+                             Evaluate[Block[{rho}, rhoTrans[rho]]]],
+                           idx},
+                         {1, 0} -> f],
+                       #1}],
+                    lines]],
+                {angLines, areaIdcs}],
+              1],
+            eccPrep = Flatten[
+              MapThread[
+                Function[{lines, min, max, idx},
+                  Map[
+                    Function[
+                      {ReplacePart[
+                         Hold @@ {
+                           Hold[
+                             Evaluate[Block[{theta}, min + (max - min)*theta]],
+                             Evaluate[#1]],
+                           idx},
+                         {1, 0} -> f],
+                       #1}],
+                    lines]],
+                {eccLines, thetaMins, thetaMaxs, areaIdcs}],
+              1]},
+           With[
+             {graphics = Flatten[
+                {If[Length[angPrep] == 0,
+                   {},
+                   ReplacePart[
+                    Hold[
+                     Evaluate[angPrep[[All, 1]]],
+                     {rho, 0, 1},
+                     Evaluate[PlotStyle -> psf /@ angPrep[[All, 2]]],
+                     Evaluate[PlotRange -> plotRangeArg],
+                     Evaluate[optseq]],
+                    {{1, _, 0} -> Part,
+                     0 -> ParametricPlot}]],
+                 If[Length[eccPrep] == 0,
+                   {},
+                   ReplacePart[
+                     Hold[
+                       Evaluate[eccPrep[[All, 1]]],
+                       {theta, 0, 1},
+                       Evaluate[PlotStyle -> esf /@ eccPrep[[All, 2]]],
+                       Evaluate[PlotRange -> plotRangeArg],
+                       Evaluate[optseq]],
+                     {{1, _, 0} -> Part,
+                      0 -> ParametricPlot}]]}]},
+             With[
+               {plotRange = If[plotRangeArg =!= Automatic && plotRangeArg =!= Full,
+                  plotRangeArg,
+                  With[
+                    {ranges = Cases[AbsoluteOptions /@ graphics, (PlotRange -> r_) :>r, {2}]},
+                    {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
+                     {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]]}, 
+               Show[graphics, PlotRange -> plotRange, optseqShow]]]]]]]]];
+
+Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas,
+        SchiraLinePlot, EccentricityStyleFunction, PolarAngleStyleFunction,
+        EccentricityLines, PolarAngleLines];
 
 End[];
 EndPackage[];
