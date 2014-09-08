@@ -383,7 +383,7 @@ FSAverageSymV1Hull := With[
   {res = Check[
      With[
        {Z = Normal[Field[FSAverageSymV1Mask]],
-        V = Vertices[FSAverageSymSphereSurface]},
+        V = VertexList[FSAverageSymSphereSurface]},
        With[
          {ids = Map[
             Rest[SortBy[#, Z[[#]] &]] &,
@@ -762,7 +762,7 @@ SchiraInverse[SchiraModelObject[disp_]] := Replace[Inverse, disp];
 
 CorticalMapToRetinotopy[SchiraModelObject[disp_], map_?MapQ] := With[
   {inv = Replace[Inverse, disp],
-   Z = Transpose[Vertices[map]]},
+   Z = Transpose[VertexList[map]]},
   Map[
     Append[ComplexToVisualAngle[#[[1]]], #[[2]]]&,
     inv[Z[[1]] + I * Z[[2]]]]];

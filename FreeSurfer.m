@@ -511,8 +511,8 @@ Protect[Field];
 
 
 (* Importing surface files ************************************************************************)
-Unprotect[ImportSurfaceHeader, ImportSurfaceVertices, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
-ClearAll[ImportSurfaceHeader, ImportSurfaceVertices, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
+Unprotect[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
+ClearAll[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
 $SurfaceFileTrianglesID = -2;
 ImportNLNLTerminatedString[stream_, opts___] := Catch[
   Apply[
@@ -552,7 +552,7 @@ ImportSurfaceHeader[stream_, opts___] := "Header" -> Block[
            "input stream",
            "Input type not recognized: "<>ToString[format]];
          Throw[$Failed])]]]];
-ImportSurfaceVertices[stream_, opts__] := "Vertices" -> Block[
+ImportSurfaceVertexList[stream_, opts__] := "VertexList" -> Block[
   {$ByteOrdering = 1},
   Catch[
     With[
@@ -620,8 +620,8 @@ ImportSurfaceData[stream_, opts___] := "Data" -> Catch[
        "Header",
        Append[{opts}, "Header" :> ("Header" /. ImportSurfaceHeader[stream, opts])]]},
     {"Header" -> header,
-     "Vertices" -> Replace[
-       "Vertices" /. ImportSurfaceVertices[stream, "Header" -> header, opts],
+     "VertexList" -> Replace[
+       "VertexList" /. ImportSurfaceVertexList[stream, "Header" -> header, opts],
        $Failed :> Throw[$Failed]],
      "Faces" -> Replace[
        "Faces" /. ImportSurfaceFaces[stream, "Header" -> header, opts],
@@ -632,8 +632,8 @@ ImportSurfaceObject[stream_, opts___] := Catch[
         "Data" /. ImportSurfaceData[stream, opts],
         {$Failed :> Throw[$Failed]}]},
     With[
-      {sym = CorticalSurface[
-         "Vertices" /. dat,
+      {sym = Surface[
+         "VertexList" /. dat,
          Field -> (Field /. Append[{opts}, Field -> None]),
          Faces -> ("Faces" /. dat)]},
       If[sym === $Failed, Throw[$Failed]];
@@ -641,12 +641,12 @@ ImportSurfaceObject[stream_, opts___] := Catch[
       sym /: ImportedData[sym] = dat;
       sym]]];
 ImportSurface[filename_String, opts___] := Import[filename, "FreeSurferSurface", opts];
-Protect[ImportSurface, ImportSurfaceHeader, ImportSurfaceVertices, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
+Protect[ImportSurface, ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
 (* Register the importer *)
 ImportExport`RegisterImport[
   "FreeSurferSurface",
   {"Header" :> ImportSurfaceHeader,
-   "Vertices" :> ImportSurfaceVertices,
+   "VertexList" :> ImportSurfaceVertexList,
    "Faces" :> ImportSurfaceFaces,
    "Data" :> ImportSurfaceData,
    ImportSurfaceObject},
@@ -664,14 +664,14 @@ ExportSurface[filename_, data_, opts___] := Block[
        3 == Length@Union[
          Cases[
            data,
-           (Rule|RuleDelayed)[("Header"|"Vertices"|"Faces"),_], {1}
+           (Rule|RuleDelayed)[("Header"|"VertexList"|"Faces"),_], {1}
           ][[All, 1]]],
        dat,
        True,
        (Message[
           ExportSurface::badfmt,
           "Export data must be a surface object or a list with " <>
-           "\"Header\", \"Faces\", and \"Vertices\" rules"];
+           "\"Header\", \"Faces\", and \"VertexList\" rules"];
         $Failed)],
      outtype = Replace["OutputFormat", Append[Flatten[{opts}], "OutputFormat" -> "Real32"]],
      createdString = Replace[
@@ -682,7 +682,7 @@ ExportSurface[filename_, data_, opts___] := Block[
       $Failed,
       With[
         {header = "Header" /. dat,
-         V = "Vertices" /. dat,
+         V = "VertexList" /. dat,
          F = "Face" /. dat},
         With[
           {res = Check[
@@ -1546,8 +1546,8 @@ FSAverageSymInvOriginalSurface := With[
   {res = Check[
     With[
       {surf = FSAverageSymOriginalSurface},
-      CorticalSurface[
-        Map[{-#[[1]], #[[2]], #[[3]]}&, Vertices[surf]],
+      Surface[
+        Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
         Faces -> Faces[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvOriginalSurface = res]];
@@ -1555,8 +1555,8 @@ FSAverageSymInvPialSurface := With[
   {res = Check[
     With[
       {surf = FSAverageSymPialSurface},
-      CorticalSurface[
-        Map[{-#[[1]], #[[2]], #[[3]]}&, Vertices[surf]],
+      Surface[
+        Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
         Faces -> Faces[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvPialSurface = res]];
@@ -1564,8 +1564,8 @@ FSAverageSymInvInflatedSurface := With[
   {res = Check[
     With[
       {surf = FSAverageSymInflatedSurface},
-      CorticalSurface[
-        Map[{-#[[1]], #[[2]], #[[3]]}&, Vertices[surf]],
+      Surface[
+        Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
         Faces -> Faces[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvInflatedSurface = res]];
@@ -1573,8 +1573,8 @@ FSAverageSymInvSphereSurface := With[
   {res = Check[
     With[
       {surf = FSAverageSymSphereSurface},
-      CorticalSurface[
-        Map[{-#[[1]], #[[2]], #[[3]]}&, Vertices[surf]],
+      Surface[
+        Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
         Faces -> Faces[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvSphereSurface = res]];
@@ -1626,14 +1626,14 @@ FSAverageSymParcellation2005 := Check[
 Protect[FSAverageSymOriginalSurface, FSAverageSymPialSurface, FSAverageSymInflatedSurface, FSAverageSymSphereSurface, FSAverageSymCurvature, FSAverageSymSulci, FSAverageSymThickness, FSAverageSymRegisteredCurvature, FSAverageSymVertexArea, FSAverageSymVertexAreaPial, FSAverageSymVertexAreaWhite, FSAverageSymVolume, FSAverageSymParcellation, FSAverageSymParcellation2009, FSAverageSymParcellation2005];
 
 FSAverageOP[hemi:(LH|RH)] := With[
-  {V = Check[Vertices[FSAverageInflatedSurface[hemi]], $Failed]},
+  {V = Check[VertexList[FSAverageInflatedSurface[hemi]], $Failed]},
   If[V === $Failed,
     $Failed,
     Set[
       FSAverageOP[hemi],
       First[Ordering[V[[All, 2]], 1]]]]];
 FSAverageSymOP := With[
-  {V = Check[Vertices[FSAverageSymInflatedSurface], $Failed]},
+  {V = Check[VertexList[FSAverageSymInflatedSurface], $Failed]},
   If[V === $Failed,
     $Failed,
     Set[
@@ -1641,7 +1641,7 @@ FSAverageSymOP := With[
       First[Ordering[V[[All, 2]], 1]]]]];
 
 SubjectOP[sub_, hemi:(LH|RH)] := With[
-  {V = Check[Vertices[SubjectInflatedSurface[sub, hemi]], $Failed]},
+  {V = Check[VertexList[SubjectInflatedSurface[sub, hemi]], $Failed]},
   If[V === $Failed,
     $Failed,
     Set[
@@ -1649,45 +1649,45 @@ SubjectOP[sub_, hemi:(LH|RH)] := With[
       First[Ordering[V[[All, 2]], 1]]]]];
 SubjectPialeOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
-  If[idx === $Failed, $Failed, Vertices[SubjectPialSurface[sub, hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[SubjectPialSurface[sub, hemi]][[idx]]]];
 SubjectInflatedOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
-  If[idx === $Failed, $Failed, Vertices[SubjectInflatedSurface[sub, hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[SubjectInflatedSurface[sub, hemi]][[idx]]]];
 SubjectSphereOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
-  If[idx === $Failed, $Failed, Vertices[SubjectSphereSurface[sub, hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[SubjectSphereSurface[sub, hemi]][[idx]]]];
 SubjectRegisteredOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
-  If[idx === $Failed, $Failed, Vertices[SubjectRegisteredSurface[sub, hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[SubjectRegisteredSurface[sub, hemi]][[idx]]]];
 SubjectSymOP[sub_, hemi:(LH|RH)] := With[
   {idx = SubjectOP[sub, hemi]},
-  If[idx === $Failed, $Failed, Vertices[SubjectSymSurface[sub, hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[SubjectSymSurface[sub, hemi]][[idx]]]];
 
 FSAveragePialOP[hemi:(LH|RH)] := With[
   {idx = FSAverageOP[hemi]},
-  If[idx === $Failed, $Failed, Vertices[FSAveragePialSurface[hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAveragePialSurface[hemi]][[idx]]]];
 FSAverageInflatedOP[hemi:(LH|RH)] := With[
   {idx = FSAverageOP[hemi]},
-  If[idx === $Failed, $Failed, Vertices[FSAverageInflatedSurface[hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageInflatedSurface[hemi]][[idx]]]];
 FSAverageSphereOP[hemi:(LH|RH)] := With[
   {idx = FSAverageOP[hemi]},
-  If[idx === $Failed, $Failed, Vertices[FSAverageSphereSurface[hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageSphereSurface[hemi]][[idx]]]];
 FSAverageRegisteredOP[hemi:(LH|RH)] := With[
   {idx = FSAverageOP[hemi]},
-  If[idx === $Failed, $Failed, Vertices[FSAverageRegisteredSurface[hemi]][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageRegisteredSurface[hemi]][[idx]]]];
 
 FSAverageSymPialOP := With[
   {idx = FSAverageSymOP},
-  If[idx === $Failed, $Failed, Vertices[FSAverageSymPialSurface][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageSymPialSurface][[idx]]]];
 FSAverageSymInflatedOP := With[
   {idx = FSAverageSymOP},
-  If[idx === $Failed, $Failed, Vertices[FSAverageSymInflatedSurface][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageSymInflatedSurface][[idx]]]];
 FSAverageSymSphereOP := With[
   {idx = FSAverageSymOP},
-  If[idx === $Failed, $Failed, Vertices[FSAverageSymSphereSurface][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageSymSphereSurface][[idx]]]];
 FSAverageSymRegisteredOP := With[
   {idx = FSAverageSymOP},
-  If[idx === $Failed, $Failed, Vertices[FSAverageSymRegisteredSurface][[idx]]]];
+  If[idx === $Failed, $Failed, VertexList[FSAverageSymRegisteredSurface][[idx]]]];
 
 End[];
 EndPackage[];

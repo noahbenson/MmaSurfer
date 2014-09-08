@@ -12,11 +12,16 @@ BeginPackage["CorticalSurface`", {"ComputationalGeometry`"}];
 Unprotect["CorticalSurface`*", "CorticalSurface`Private`*"];
 ClearAll[ "CorticalSurface`*", "CorticalSurface`Private`*"];
 
-Faces::usage = "Faces[surf] yields a list of all faces in the surface surf, if any, as lists of indices into Vertices[surf].";
+EdgeLengths::usage = "EdgeLengths[s] yields a list of the lengths (Euclidean norm) of each edge in the EdgeList[s] where s may be a surface or a map.";
+FaceList::usage = "FaceList[s] yields a list of all faces in the surface or map s, if any, as lists of indices into VertexList[s].";
+Faces::usage = "Faces[s] is an alias for FaceList[s].";
+FaceCount::usage = "FaceCount[s] yields the count of all faces in the surface or map s.";
+FaceAngles::usage = "FaceAngles[s] yields a list of the angles (in radians) of each edge in the FaceList[s] where s may be a surface or a map. FaceAngles[s, X] yields the angles for s if the vertices in s had coordinates equal to those in the list X.";
+FacesIndex::usage = "FacesIndex[s] yields a list of the indices into FaceList[s] such that the i'th element in FacesIndex[s] is the list of indices at which the i'th vertex in VertexList[s] appears in FaceList[s].";
+NeighborhoodAngles::usage = "NeighborhoodAngles[s] yields a list of the angles of each angle in in the surface or map s such that for the i'th entry in the VertexList[s] of the surface or map s, the i'th entry of the NeighborhoodAngles[s] list is a list of the angles around the i'th vertex such that the first angle is the angle between the virst two entries of the i'th element of the NeighborhoodList[s]. NeighborhoodAngles[s, X] yields the neighborhood angles for s if the vertices of s were replaced with the vertices in the list X.";
 Longitude::usage = "Longitude is a keyword that represents the longitude (identical to azimuth angle) in spherical coordinates.";
 Latitude::usage = "Latitude is a keyword that represents the latitude in spherical coordinates.";
 Radius::usage = "Radius is a keyword that represents the radius of a surface-to-map projection (see SurfaceProjection).";
-Vertices::usage = "Vertices[surf] yields a list of all vertices associated with cortical surface surf in cartesian coordinates.  Vertices[surf, rep] yields a list of all vertices associated with cortical surface surf in the coordinate representation given by rep; rep can be in any format accepted by ConvertCoordinates.";
 
 CartesianToSpherical::usage = "CartesianToSpherical[data] yields an equivalent dataset to data except that the parts of data corresponding to (x,y,z) coordinates are replaced with (\[Theta],\[Phi]) coordinates. The data parameter must be a list of either lists or rules OR a single list or a single rule. In data is a list of lists, then the first three elements of each sublist is taken to be the (x,y,z) part; if data is a list of rules or a rule, then the first element of the rule is taken to be the (x,y,z) part. CartesianToSpherical yields data in the same format as it is given, but with the appropriate replacements."
 CartesianToSpherical::badfmt = "Bad data format given to CartesianToSpherical";
@@ -26,35 +31,37 @@ SphericalToCartesian::usage = "SphericalToCartesian is identical to CartesianToS
 SphericalToCartesian::badfmt = "Bad data format given to SphericalToCartesian";
 SphercialToCartesian::badopt = "Bad option `1` given to SphericalToCartesian: `2`";
 
-SphericalCoordinateStyle::usage = "SphericalCoordinateStyle is an option for functions such as CorticalSurface that accept spherical coordinates. SphericalCoordinateStyle describes coordinates of the form {a, b} such that a SphericalCoordinateStyle value of {x, y} indicates that a represents measurement x and b represents measurement y. The possible measurements are Azimuth/Longitude (which are identical), Latitude, and PolarAngle. At least one of x and y must be Azimuth or Longitude and one of them must be either Latitude or PolarAngle. The ConvertCoordinates function can be used to convert between representations.";
+SphericalCoordinateStyle::usage = "SphericalCoordinateStyle is an option for functions such as Surface that accept spherical coordinates. SphericalCoordinateStyle describes coordinates of the form {a, b} such that a SphericalCoordinateStyle value of {x, y} indicates that a represents measurement x and b represents measurement y. The possible measurements are Azimuth/Longitude (which are identical), Latitude, and PolarAngle. At least one of x and y must be Azimuth or Longitude and one of them must be either Latitude or PolarAngle. The ConvertCoordinates function can be used to convert between representations.";
 SphericalPolarAngle::usage = "SphericalPolarAngle is a keyword that either represents polar angle data of the visual field or the angle from the pole (z-axis) in spherical coordinate data.";
 SphericalAzimuth::usage = "SphericalAzimuth is a keyword that represents the azimuth angle (identical to longitude) in spherical coordinates.";
 
 ConvertCoordinates::usage = "ConvertCoordinates[data, fromStyle -> toStyle] yields a transformation of data such that its coordinates are converted from fromStyle to toStyle; fromStyle and toStyle may be Cartesian or any argument appropriate for SphericalCoordinateStyle. The data parameter may be a list of points or a list of rules whose heads are points.";
 ConvertCoordinates::badfmt = "Bad input to ConvertCoordinates: `1`";
 
-CorticalSurface::usage = "CorticalSurface[data] yields a cortical surface representation of the cortical surface data given in data. The cortical surface data must be a list of rules, which may be in spherical or cartesian coordinates. If the data is in spherical coordinates, then the SphericalCoordinateStyle option specifies how the coordinates should be interpreted; if the coordinates for each point are {a, b}, then the SphericalCoordinateStyle option specifies {a-style, b-style} where each of a-style and b-style must come from these lists and must not come from the same list: {SphericalAzimuth, Longitude} and {Latitude, SphericalPolarAngle}. See ?SphericalCoordinateStyle for more information.
+Surface::usage = "Surface[data] yields a cortical surface representation of the cortical surface data given in data. The cortical surface data must be a list of rules, which may be in spherical or cartesian coordinates. If the data is in spherical coordinates, then the SphericalCoordinateStyle option specifies how the coordinates should be interpreted; if the coordinates for each point are {a, b}, then the SphericalCoordinateStyle option specifies {a-style, b-style} where each of a-style and b-style must come from these lists and must not come from the same list: {SphericalAzimuth, Longitude} and {Latitude, SphericalPolarAngle}. See ?SphericalCoordinateStyle for more information.
 The cortical surface representation yielded by this function is actually a symbol with many tagged values. These each have their own additional documentation and are listed here:
-  Vertices[surf],
-  Faces[surf]
+  VertexList[surf],
+  FaceList[surf],
   Field[surf],
   SurfaceQ[surf]
   Normal[surf]
-  Filter[surf]";
-CorticalSurface::badarg = "Bad argument `1` to CorticalSurface: `2`";
+  VertexFilter[surf]
+  FaceFilter[surf]";
+Surface::badarg = "Bad argument `1` to Surface: `2`";
 
-CorticalSurfaceFromVTK::usage = "CorticalSurfaceFromVTK[filename] yields a cortical surface representation of the cortical surface data given in the VTK file specified; see CorticalSurface and ReadVTK for more information.";
+SurfaceFromVTK::usage = "SurfaceFromVTK[filename] yields a cortical surface representation of the cortical surface data given in the VTK file specified; see Surface and ReadVTK for more information.";
 
-Filter::usage = "Filter is an option to CorticalSurface and SurfaceProjection; in both cases, it must be a function that takes as arguments a vertex position (in cartesian or map coordinates) and a field value (which may be None). Only those vertices for which the filter function yields True are included in the constructed object. In the case of maps, vertices that are filtered are still included in the domain, but not in the result. Filter[surface] and Filter[map] yield the surface or map's filter.";
-Polygons::usage = "Polygons[surf] yields a list of all polygons in the surface surf, if any, by cross-referencing Vertices[surf] and Faces[surf]; these polygons are listed in the same order, with the same vertex order, as in Faces[surf].";
+VertexFilter::usage = "VertexFilter is an option to Surface and SurfaceProjection; in both cases, it must be a function that takes as arguments a vertex position (in cartesian or map coordinates) and a field value (which may be None). Only those vertices for which the filter function yields True are included in the constructed object. In the case of maps, vertices that are filtered are still included in the domain, but not in the result. VertexFilter[surface] and VertexFilter[map] yield the surface or map's filter.";
+FaceFilter::usage = "FaceFilter is an option to Surface and SurfaceProjection; in both cases, it must be a function that takes as arguments a list of vertex indices which together form a face. Only those faces for which the filter function yields True are included in the constructed object. In the case of maps, faces that are filtered are still included in the domain, but not in the result. FaceFilter[surface] and FaceFilter[map] yield the surface or map's filter.";
+Polygons::usage = "Polygons[surf] yields a list of all polygons in the surface surf, if any, by cross-referencing VertexList[surf] and Faces[surf]; these polygons are listed in the same order, with the same vertex order, as in Faces[surf].";
 Field::usage = "Field[surf] yields a list of all field values associated with cortical surface surf.";
 FieldQ::usage = "FieldQ[obj] yields true if and only if obj has a field such that Field[obj] yields a list.";
-Surface::usage = "Surface[map] yields the surface object from which the map was projected.";
-SurfaceQ::usage = "SurfaceQ[s] yields true if and only if s is a surface object, as created by CorticalSurface[].";
+ProjectedSurface::usage = "ProjectedSurface[map] yields the surface object from which the map was projected.";
+SurfaceQ::usage = "SurfaceQ[s] yields true if and only if s is a surface object, as created by Surface[].";
 SurfaceName::usage = "SurfaceName[x] yields the symbol to which all the given surface's geometric data is attached. Note that while SurfaceName[s] is always a map with the same vertices, faces, edges, etc. as s, it is not necessarily s, and does not necessarily have the same field as s.";
 
 Domain::usage = "Domain[map] yields the Normal of the section of the surface from which map was derived.";
-DomainIndices::usage = "DomainIndices[map] yields a list of the indices into Normal[Surface[map]] for the points that compose the domain of map.";
+DomainIndices::usage = "DomainIndices[map] yields a list of the indices into Normal[ProjectedSurface[map]] for the points that compose the domain of map.";
 ProjectionDispatch::usage = "ProjectionDispatch[map] yields a dispatch list (ie, for use with Replace and /.) that, when given a cartesian point on a surface projects it to the map.";
 ProjectionShear::usage = "ProjectionShear[map] yields the shearing matrix associated with map.";
 ProjectionRotation::usage = "ProjectionRotation[map] yields the rotation matrix associated with map.";
@@ -63,17 +70,18 @@ InverseProjectionDispatch::usage = "InverseDispatch[map] yields the dispatch fun
 InverseProjectionTransform::usage = "InverseProjectionTransform[map] yields a function that inverts the transform from map's surface to map."
 MapQ::usage = "MapQ[x] yields true if and only if x is a map created as a projection of a surface.";
 MapName::usage = "MapName[x] yields the symbol to which all the given map's geometric data is attached. Note that while MapName[m] is always a map with the same vertices, faces, edges, etc. as m, it is not necessarily m, and does not necessarily have the same field as m.";
+MapConvexHull::usage = "MapConvexHull[m] yields the indices of the convex hull of the vertices in the given map m.";
+MapHull::usage = "MapConvexHull[m] yields the indices of the general hull of the vertices in the given map m. The general hull differs from the convex hull in that all vertices with faces ";
 
 MergeSurfaces::usage = "MergeSurfaces[s1, s2, f] yields a surface object such that any point p appearing in either s1 or s2 is represented in the new surface and has field value equal to
  f[f1, f2] where f1 and f2 are the field values at p in surface s1 and s2 respectively (or None if no field is defined at that point).";
 MergeSurfaces::dup = "Surface given to MergeSurfaces has duplicate vertices";
 
-SurfaceProjection::usage = "SurfaceProjection[surf] yields a surface projection of the region within Pi/3 radians of the occipital pole, with V1 oriented along the positive x-axis. To alter the
- location of the map projection constructed, the following options may be used:
-  Duplicate may be a surface projection whose projection should be duplicated (other arguments overwrite this argument).
+SurfaceProjection::usage = "SurfaceProjection[surf] yields a surface projection of the region within Pi/3 radians of the occipital pole, with V1 oriented along the positive x-axis. To alter the location of the map projection constructed, the following options may be used:
+  Duplicate may be a surface projection whose projection should be duplicated (other arguments overwrite the duplicated surface's options).
   Center must be a 3D cartesian point representing the center of the map to be constructed.
   Radius must be a number greater than 0 that indicates the distance from the center that the map should encompass.
-  OrientPoint must be a point or a point -> an angle (which be default is 0) to use in orienting the map; the point is oriented so that it lies at the given angle in a polar-coordinate version of the map (i.e., x -> Pi/4 indicates that point x should, in the resulting map, lie on the y-axis).
+  OrientPoint must be a point or a point -> an angle (which by default is 0) to use in orienting the map; the point is oriented so that it lies at the given angle in a polar-coordinate version of the map (i.e., x -> Pi/2 indicates that point x should, in the resulting map, lie on the y-axis).
   ProjectionShear must be a shear matrix that is applied to the final map after orientation.";
 SurfaceProjection::badarg = "Bad argument `1` to SurfaceProjection: `2`";
 SurfaceProjection::badfmt = "Transform argument given in unrecognized format";
@@ -85,29 +93,22 @@ Duplicate::usage = "Duplicate is an option to SurfaceProjection which specifies 
 
 MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[] may be given.";
 
-WithFilter::usage = "WithFilter[map, filt] and WithFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
+WithVertexFilter::usage = "WithVertexFilter[map, filt] and WithVertexFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
+WithFaceFilter::usage = "WithFaceFilter[map, filt] and WithFaceFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
 WithField::usage = "WithField[surf, field] yields a surface object that is identical to surf except that its field has been replaced with the given field. Rule (field -> surf) may be used as a shorthand for WithField[surf, field].";
 WithField::incompat = "WithField given surface and field with a different numbers of vertices.";
-
-ToField::usage = "ToField[list] yields a version of list that can be passed as a field.";
+WithVertexList::usage = "WithVertexList[surf, X] yields a new surface identical to surf, but with the given list of vertices X instead in the place of surf's vertices.";
+WithVertexList::incompat = "WithVertexList given a surface and a vertex list with different sizes.";
 
 ReadVTK::usage = "ReadVTK[filename] reads the given VTK file, including fields, and yields a list of rules, {x,y,z} -> field. The filename may be a URL.";
 ReadVTK::nofile = "No such file: `1`";
 ReadVTK::flerr = "Unspecified error while reading file: `1`";
 
 SurfacePlot::usage = "SurfacePlot[surf] yields a plot of the surface object surf. All options available to Graphics3D may be given,";
-SurfaceSelect::usage = "SurfaceSelect[surf, fn] yields a surface object which consists of a subset of the surface surf containing nodes U for which fn[u -> f[u]] yields true for all u in U and where f[u] is the field value of vertex u.";
-SurfaceCases::usage =  "SurfaceCases[surf, form] yields a surface object which consists of a subset of the surface surf containing nodes U for which u -> f[u] matches form for all u in U and where f[u] is the field value of vertex u.";
-SurfaceMap::usage = "SurfaceMap[fn, surf] yields a new surface equal to the surface surf but with the new surface's vertex/field values determined by fn[u -> f[u]] where u is in Vertices[surf] and f[u] is the field of vertex u. SurfaceMap[fn, {surf1, surf2...}] is like SurfaceMap[fn, surfn] but calls fn with the vertex to field rules of all the given surfaces.";
-SurfaceReplace::usage = "SurfaceReplace[surf, rules] yields a new surface identical to the surface surf after having each vertex -> field element of the surface replaced by the list of rules.";
 
-SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but such that the field of the surface has been resampled from surf1. All options except the Field option of CorticalSurface are accepted and passed verbatim; a Method option may also specify Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for their respective functions. In the latter two cases, A list may be given instead of the argument such that the first argument is Interpolation or LitInterpolation and the remaining elements of the list are options to pass to these functions; e.g. Method -> {Interpolation, InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2] but self-hashes.";
+SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but such that the field of the surface has been resampled from surf1. All options except the Field option of Surface are accepted and passed verbatim; a Method option may also specify Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for their respective functions. In the latter two cases, A list may be given instead of the argument such that the first argument is Interpolation or LitInterpolation and the remaining elements of the list are options to pass to these functions; e.g. Method -> {Interpolation, InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2] but self-hashes.";
 
-SurfaceNeighborhoods::usage = "SurfaceNeighborhoods[surf] yields a list of length N (where N is the number of vertices in surf) of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis.";
-MapNeighborhoods::usage = "MapNeighborhoods[map] yields a list of length N (where N is the number of vertices in map of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis.";
-
-SurfaceEdges::usage = "SurfaceEdges[surf] yields a list of all edges in Faces[surf] such that each edge is listed exactly once as {u,v} where u < v.";
-MapEdges::usage = "MapEdges[map] yields a list of all edges in Faces[map] such that each edge is listed exactly once as {u,v} where u < v.";
+NeighborhoodList::usage = "NeighborhoodList[s] yields a list of length N (where N is the number of vertices in s) of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis. The argument s may be either a map or a surface.";
 
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
@@ -118,6 +119,8 @@ Curvature::usage = "Curvature is a keyword that can be used to refer to curvatur
 
 (**************************************************************************************************)
 Begin["`Private`"];
+
+Unprotect[VertexList, EdgeList, EdgeCount, VertexCount];
 
 (* #ReadVTK ***************************************************************************************)
 ReadVTK[filename_String] := Catch[
@@ -280,14 +283,16 @@ ConvertCoordinates[data:{{_,_}..}, Rule[Cartesian, toStyle_]] := CartesianToSphe
 (* #FieldQ ****************************************************************************************)
 FieldQ[obj_] := (Head[Field[obj]] =!= Field);
 
-(* #CorticalSurface *******************************************************************************)
-Options[CorticalSurface] = {
+(* #Surface ***************************************************************************************)
+Options[Surface] = {
   SphericalCoordinateStyle -> {Longitude, Latitude}, 
-  Filter -> None,
+  VertexFilter -> None,
+  FaceFilter -> None,
   Field -> None,
   Faces -> None,
+  FaceList -> None,
   Polygons -> None};
-CorticalSurface[data: {{_,_,_}..}, OptionsPattern[]] := Catch[
+Surface[data: {{_,_,_}..}, OptionsPattern[]] := Catch[
   With[
     {sym = (SetAttributes[#, Temporary]; #)&@Unique["surf"],
      field = Replace[
@@ -295,39 +300,42 @@ CorticalSurface[data: {{_,_,_}..}, OptionsPattern[]] := Catch[
        {l_List /; Length[l] == Length[data] :> l,
         None -> Table[None, {Length[data]}],
         _ :> (
-          Message[CorticalSurface::badarg, Field, "must have same length as vertices"];
+          Message[Surface::badarg, Field, "must have same length as vertices"];
           Throw[$Failed])}],
      faces = Replace[
-       OptionValue[Faces],
+       Replace[OptionValue[FaceList], None :> OptionValue[Faces]],
        {(l  : {{_Integer, _Integer, _Integer..}..} 
            /; And@@Map[(1 <= # <= Length[data])&, Flatten[l]]
          ) :> l,
         None -> None,
         _ :> (
-          Message[CorticalSurface::badarg, Faces, "must consist of index lists"];
+          Message[Surface::badarg, FaceList, "must consist of index lists"];
           Throw[$Failed])}],
      polygons = Replace[
        OptionValue[Polygons],
        {l_List /; TrueQ[Union[data] == Union[Join[data, Flatten[l, 2]]]] :> l,
         None -> None,
         _ :> (
-          Message[CorticalSurface::badarg, Faces, "must consist of index lists"];
+          Message[Surface::badarg, FaceList, "must consist of index lists"];
           Throw[$Failed])}],
-     filtFn = Replace[
-       OptionValue[Filter], 
-       (False|None) :> (True&)]},
+     uFiltFn = Replace[
+       OptionValue[VertexFilter], 
+       (False|None) :> True],
+     fFiltFn = Replace[
+       OptionValue[FaceFilter], 
+       (False|None) :> True]},
     sym /: SurfaceQ[sym] = True;
     sym /: SurfaceName[sym] = sym;
-    sym /: Filter[sym] = OptionValue[Filter];
+    sym /: FaceFilter[sym] = OptionValue[FaceFilter];
+    sym /: VertexFilter[sym] = OptionValue[VertexFilter];
     With[
-      {idcs = Select[Range[Length[data]], TrueQ[filtFn[data[[#]], field[[#]]]]&]},
-      sym /: Vertices[sym] := TagSet[
+      {idcs = If[uFiltFn === True,
+         All,
+         Select[Range[Length[data]], TrueQ[uFiltFn[data[[#]], field[[#]]]]&]]},
+      sym /: VertexList[sym] = data[[idcs]];
+      sym /: VertexList[sym, toStyle_] := TagSet[
         sym, 
-        Vertices[sym],
-        data[[idcs]]];
-      sym /: Vertices[sym, toStyle_] := TagSet[
-        sym, 
-        Vertices[sym, toStyle],
+        VertexList[sym, toStyle],
         ConvertCoordinates[data[[idcs]], Cartesian -> toStyle]];
       sym /: Field[sym] := TagSet[
         sym, 
@@ -341,68 +349,75 @@ CorticalSurface[data: {{_,_,_}..}, OptionsPattern[]] := Catch[
         sym,
         Normal[sym, toStyle],
         MapThread[Rule, {ConvertCoordinates[data[[idcs]], Cartesian -> toStyle], field[[idcs]]}]];
-      sym /: Faces[sym] := TagSet[
+      sym /: FaceList[sym] := TagSet[
         sym, 
-        Faces[sym],
-        If[faces === None && polygons === None, 
-          None,
-          With[
-            {keep = Normal[SparseArray[Thread[idcs -> 1], Length[data], 0]]},
-            Select[
-              If[faces =!= None,
-                faces,
-                polygons /. Dispatch[MapThread[Rule, {data, Range[Length[data]]}]]],
-              Apply[And, Thread[Evaluate[Part[keep, #] == 1]]]&]]]];
+        FaceList[sym],
+        With[
+          {faceList = Which[
+             faces =!= None, faces,
+             polygons =!= None, Replace[
+               polygons,
+               Dispatch[MapThread[Rule, {data, Range[Length[data]]}]],
+               {2}],
+             True, None]}, 
+          Which[
+            faces === None, None,
+            idcs === All && fFiltFn === True, faceList,
+            idcs === All, Select[faceList, fFiltFn],
+            True, With[
+              {disp = Dispatch[Append[Map[(# -> True)&, idcs], _ -> False]]},
+              Select[faceList, If[fFiltFn[#], And@@Replace[#, disp, {1}], False]&]]]]];
       sym /: Polygons[sym] := TagSet[
-        sym, 
+        sym,
         Polygons[sym],
-        If[faces === None && polygons === None, 
-          None,
-          With[
-            {keep = Dispatch[Append[Table[data[[i]] -> True, {i, idcs}], _ -> False]]},
-            Select[
-              If[polygons =!= None,
-                polygons,
-                faces /. Dispatch[MapThread[Rule, {Range[Length[data]], data}]]],
-            Apply[And, Replace[#, keep, {1}]]&]]]];
+        data[[#]]& /@ FaceList[sym]];
       sym /: Polygons[sym, toStyle_] := TagSet[
         sym, 
         Polygons[sym, toStyle],
         Map[ConvertCoordinates[#, Cartesian -> toStyle]&, Polygons[sym]]];
       sym]]];
-CorticalSurface[data: {Rule[{_,_,_},_]..}, opts:OptionsPattern[]] := CorticalSurface[
+Surface[data: {Rule[{_,_,_},_]..}, opts:OptionsPattern[]] := Surface[
   data[[All,1]],
   opts,
   Field -> data[[All,2]]];
-CorticalSurface[data: {{_,_}..}, opts:OptionsPattern[]] := With[
+Surface[data: {{_,_}..}, opts:OptionsPattern[]] := With[
   {sc = OptionValue[SphericalCoordinateStyle]},
-  CorticalSurface[
+  Surface[
     ConvertCoordinates[data, sc -> Cartesian],
     opts]];
-CorticalSurface[data: {Rule[{_,_},_]..}, opts:OptionsPattern[]] := CorticalSurface[
+Surface[data: {Rule[{_,_},_]..}, opts:OptionsPattern[]] := Surface[
   data[[All, 1]],
   opts,
   Field -> data[[All, 2]]];
+Surface[surf_?SurfaceQ, opts:OptionsPattern[]] := Surface[
+  VertexList[surf],
+  opts
+  Field -> Field[surf],
+  FaceList -> FacesList[surf],
+  VertexFilter -> VertexFilter[surf],
+  FaceFilter -> FaceFilter[surf]];
 
 (* #SurfaceQ **************************************************************************************)
 SurfaceQ[x_] = False;
 
-(* #CorticalSurfaceFromVTK ************************************************************************)
-Options[CorticalSurfaceFromVTK] = Options[CorticalSurface];
-CorticalSurfaceFromVTK[filename_String, opts:OptionsPattern[]] := CorticalSurface[
+(* #SurfaceFromVTK ************************************************************************)
+Options[SurfaceFromVTK] = Options[Surface];
+SurfaceFromVTK[filename_String, opts:OptionsPattern[]] := Surface[
   ReadVTK[filename],
   opts];
 
 (* #MergeSurfaces *********************************************************************************)
 Options[MergeSurfaces] = {
   Function -> Function[#2],
-  Filter -> None};
+  VertexFilter -> None,
+  FaceFilter -> None};
 MergeSurfaces[surfs:{_?SurfaceQ, _?SurfaceQ..}, OptionsPattern[]] := With[
   {n = Length[surfs],
    ideal = Range[Length[surfs]],
    mergeFn = OptionValue[Function],
-   filt = OptionValue[Filter]},
-  CorticalSurface[
+   uFilt = Replace[OptionValue[VertexFilter], None|False -> (True&)],
+   fFilt = Replace[OptionValue[FaceFilter], None|False -> (True&)]},
+  Surface[
     Map[
       Function[
         If[Length[Union[#[[All,3]]]] != Length[#],
@@ -411,15 +426,16 @@ MergeSurfaces[surfs:{_?SurfaceQ, _?SurfaceQ..}, OptionsPattern[]] := With[
             #[[1,1]],
             Replace[Range[n], Append[Map[(#[[3]] -> #[[2]])&, #], (_ -> None)], {1}]]]],
       GatherBy[
-        Apply[
-          Join,
-          MapIndexed[
-            Function[{surf, idx}, 
-              MapThread[{#1, #2, idx[[1]]}&, {Vertices[surf], Field[surf]}]],
-            surfs]],
+        Select[
+          Transpose[
+            {Flatten[VertexList /@ surfs], 
+             Flatten[Field /@ surfs],
+             Flatten[Table[k, {k,1,Length[surfs]}, {Length[VertexList[surf[[k]]]]}]]}],
+          uFilt[#[[1]]]&],
         First]],
-    Faces -> Faces[surfs[[1]]],
-    Filter -> filt]];
+    FaceList -> Select[FaceList[surfs[[1]]], fFilt],
+    VertexFilter -> OptionValue[VertexFilter],
+    FaceFilter -> OptionValue[FaceFilter]]];
 
 (* #SurfaceProjection *****************************************************************************)
 Options[SurfaceProjection] = {
@@ -428,7 +444,8 @@ Options[SurfaceProjection] = {
   Radius -> Automatic,
   OrientPoint -> Automatic,
   Duplicate -> None,
-  Filter -> None};
+  VertexFilter -> None
+  FaceFilter -> None};
 SurfaceProjection[surf_, OptionsPattern[]] := Catch[
   With[
     {dflt = Replace[
@@ -438,13 +455,15 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
           Center -> {0,0,1},
           Radius -> (Pi / 3.0),
           ProjectionShear -> {{1,0},{0,1}},
-          Filter -> None},
+          VertexFilter -> None,
+          FaceFilter -> None},
         map_?MapQ :> {
           OrientPoint -> OrientPoint[map],
           Center -> Center[map],
           Radius -> Radius[map],
           ProjectionShear -> ProjectionShear[map],
-          Filter -> Filter[map]},
+          VertexFilter -> VertexFilter[map],
+          FaceFilter -> FaceFilter[map]},
         _ :> (
           Message[SurfaceProjection::badarg, Duplicate, "must be None or a projection map"];
           Throw[$Failed])}]},
@@ -475,7 +494,8 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
           _ :> (
             Message[SurfaceProjection::badarg, OrientPoint, "must be a rule or a point"];
             Throw[$Failed])}],
-       filt = OptionValue[Filter],
+       uFilt = Replace[OptionValue[VertexFilter], None|False|Automatic -> (True&)],
+       fFilt = Replace[OptionValue[FaceFilter], None|Flase|Automatic -> (True&)],
        sym = (SetAttributes[#, Temporary]; #)&@Unique["map"],
        scFn = Function[CartesianToSpherical[#, SphericalCoordinateStyle -> {Longitude, Latitude}]],
        iscFn = Function[SphericalToCartesian[#, SphericalCoordinateStyle -> {Longitude, Latitude}]]},
@@ -495,8 +515,9 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
              ifn = Function[Dot[iscFn[Dot[#, iopT]], irotT]]},
             sym /: MapQ[sym] = True;
             sym /: MapName[sym] = sym;
-            sym /: Filter[sym] = filt;
-            sym /: Surface[sym] = surf;
+            sym /: VertexFilter[sym] = uFilt;
+            sym /: FaceFilter[sym] = fFilt;
+            sym /: ProjectedSurface[sym] = surf;
             sym /: Center[sym] = mu;
             sym /: ProjectionShear[sym] = shear;
             sym /: Radius[sym] = rad;
@@ -507,14 +528,14 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
                pat:{{_,_,_}..} :> fn[pat],
                Rule[a:{_,_,_},b_] :> Rule[First[fn[{a}]], b],
                a:{_?AtomQ,_?AtomQ,_?AtomQ} :> First[fn[{a}]],
-               s_?SurfaceQ :> MapThread[Rule, {fn[Vertices[s]], Field[s]}],
+               s_?SurfaceQ :> MapThread[Rule, {fn[VertexList[s]], Field[s]}],
                _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
             sym /: InverseProjectionDispatch[sym] = Dispatch[
               {pat:{Rule[{_,_},_]..} :> MapThread[Rule, {ifn[pat[[All,1]]], pat[[All,2]]}],
                pat:{{_,_}..} :> ifn[pat],
                Rule[a:{_,_},b_] :> Rule[First[ifn[{a}]], b],
                a:{_?AtomQ,_?AtomQ} :> First[ifn[{a}]],
-               s_?SurfaceQ :> MapThread[Rule, {ifn[Vertices[s]], Field[s]}],
+               s_?SurfaceQ :> MapThread[Rule, {ifn[VertexList[s]], Field[s]}],
                _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
             sym /: ProjectionTransform[sym] = Function[Replace[#, ProjectionDispatch[sym]]];
             sym /: InverseProjectionTransform[sym] = Function[
@@ -537,13 +558,13 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
               sym,
               Normal[sym],
               Replace[
-                If[filt === None, Domain[sym], Select[Domain[sym], TrueQ[f[#[[1]], #[[2]]]]&]],
+                Select[Domain[sym], f[#[[1]], #[[2]]]&],
                 ProjectionDispatch[sym]]];
-            sym /: Vertices[sym] := TagSet[sym, Vertices[sym], Normal[sym][[All,1]]];
+            sym /: VertexList[sym] := TagSet[sym, VertexList[sym], Normal[sym][[All,1]]];
             sym /: Field[sym] := TagSet[sym, Field[sym], Normal[sym][[All,2]]];
-            sym /: Faces[sym] := TagSet[
+            sym /: FaceList[sym] := TagSet[
               sym,
-              Faces[sym],
+              FaceList[sym],
               With[
                 {dom = Dispatch[
                    Append[
@@ -554,13 +575,15 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
                      Rule, 
                      {DomainIndices[sym], Range[Length@DomainIndices[sym]]}]]},
                 Replace[
-                  Select[Faces[surf], Apply[And, # /. dom]&],
+                  Select[
+                    FaceList[surf],
+                    If[fFilt[#], Apply[And, # /. dom], False]&],
                   tr,
                   {2}]]];
             sym /: Polygons[sym] := TagSet[
               sym,
               Polygons[sym],
-              Map[Vertices[sym][[#]]&, Faces[sym]]];
+              Map[VertexList[sym][[#]]&, FaceList[sym]]];
             sym]]]]]];
 
 (* #StructuredRescale * ***************************************************************************)
@@ -577,11 +600,11 @@ StructuredRescale[dat_List] := If[ArrayDepth[dat] == 1,
 Options[MapPlot] = Join[
   Options[Graphics],
   {ColorFunction -> Automatic,
-   ColorFunctionScaling -> True}];
+   ColorFunctionScaling -> False}];
 MapPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
   With[
-    {V = Normal[Vertices[map]],
-     F = Normal[Faces[map]],
+    {V = Normal[VertexList[map]],
+     F = Normal[FaceList[map]],
      Z = Normal[Field[map]],
      cfn = Replace[
        OptionValue[ColorFunction],
@@ -611,46 +634,23 @@ MapPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
 (* #MapQ ******************************************************************************************)
 MapQ[x_] = False;
 
-(* #WithFilter ************************************************************************************)
-WithFilter[surf_?SurfaceQ, filt_] := CorticalSurface[Normal[surf], Filter -> filt];
-WithFilter[map_?MapQ, filt_] := With[
+(* #WithVertexFilter ******************************************************************************)
+WithVertexFilter[surf_?SurfaceQ, filt_] := Surface[surf, VertexFilter -> filt];
+WithVertexFilter[map_?MapQ, filt_] := With[
   {newFilt = Replace[
-     Filter[map],
+     VertexFilter[map],
      {None -> filt,
       f_ :> (And[f[#1,#2], filt[#1,#2]]&)}]},
-  SurfaceProjection[Domain[map], Duplicate -> map, Filter -> newFilt]];
+  SurfaceProjection[Domain[map], Duplicate -> map, VertexFilter -> newFilt]];
 
-(* SurfaceSelect **********************************************************************************)
-SurfaceSelect[surf_?SurfaceQ, filterFn_] := With[
-  {V = Vertices[surf],
-   Z = Field[surf],
-   F = Faces[surf]},
-  With[
-    {pick = Map[filterFn, Normal[surf]]},
-    With[
-      {idcs = Flatten[Position[pick, True]]},
-      With[
-        {tr = Dispatch[MapThread[Rule, {idcs, Range[Length[idcs]]}]]},
-        CorticalSurface[
-          Pick[V, pick],
-          Field -> Pick[Z, pick],
-          Faces -> (Select[F, Apply[And, pick[[#]]]&] /. tr)]]]]];
-
-(* SurfaceSelect **********************************************************************************)
-SurfaceCases[surf_?SurfaceQ, form_] := With[
-  {V = Vertices[surf],
-   Z = Field[surf],
-   F = Faces[surf]},
-  With[
-    {pick = Map[MatchQ[#, form]&, Normal[surf]]},
-    With[
-      {idcs = Flatten[Position[pick, True]]},
-      With[
-        {tr = Dispatch[MapThread[Rule, {idcs, Range[Length[idcs]]}]]},
-        CorticalSurface[
-          Pick[V, pick],
-          Field -> Pick[Z, pick],
-          Faces -> (Select[F, Apply[And, pick[[#]]]&] /. tr)]]]]];
+(* #WithFaceFilter ********************************************************************************)
+WithFaceFilter[surf_?SurfaceQ, filt_] := Surface[surf, FaceFilter -> filt];
+WithFaceFilter[map_?MapQ, filt_] := With[
+  {newFilt = Replace[
+     FaceFilter[map],
+     {None -> filt,
+      f_ :> (And[f[#], filt[#]]&)}]},
+  SurfaceProjection[Domain[map], Duplicate -> map, FaceFilter -> newFilt]];
 
 (* #MergePolygons *********************************************************************************)
 (* Used by SurfacePlot below *)
@@ -675,11 +675,11 @@ MergePolygons[polygons_List, X_List, categories_List] := With[
 Options[SurfacePlot] = Join[
   Options[Graphics3D],
   {ColorFunction -> Automatic,
-   ColorFunctionScaling -> True}];
+   ColorFunctionScaling -> False}];
 SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
   With[
-    {V = Normal[Vertices[surf]],
-     F = Normal[Faces[surf]],
+    {V = Normal[VertexList[surf]],
+     F = Normal[FaceList[surf]],
      Z = Normal[Field[surf]],
      cfn = Replace[
        OptionValue[ColorFunction],
@@ -705,37 +705,155 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
     {opts},
     Except[ColorFunction|ColorFunctionScaling]]];
 
-(* #SurfaceMap ************************************************************************************)
-SurfaceMap[fn_, surf_?SurfaceQ] := CorticalSurface[
-  Map[fn, Normal[surf]],
-  Faces -> Faces[surf]];
-SurfaceMap[fn_, surfs_List /; And@@((ListQ[#] || SurfaceQ[#])& /@ surfs)] := CorticalSurface[
-  Map[Apply[fn, #]&, Transpose[Normal/@surfs]],
-  Faces -> Faces[surfs[[1]]]];
+(* #WithVertexList **********************************************************************************)
+Options[WithVertexList] = {SphericalCoordinateStyle -> None};
+WithVertexList[surf_?SurfaceQ, X_List] /; Length[VertexList[surf]] != Length[X] := (
+  Message[WithVertexList::incompat];
+  $Failed);
+WithVertexList[surf_?SurfaceQ, X_List /; MatchQ[Dimensions[X], {_,3}]] := Surface[
+    X, 
+    Field -> Field[surf],
+    FaceList -> FaceList[surf],
+    FaceFilter -> FaceFilter[surf],
+    VertexFilter -> VertexFilter[surf]];
+WithVertexList[surf_?SurfaceQ, X_List /; MatchQ[Dimensions[X], {_,2}]] := Surface[
+    X, 
+    Field -> Field[surf],
+    FaceList -> FaceList[surf],
+    FaceFilter -> FaceFilter[surf],
+    VertexFilter -> VertexFilter[surf],
+    SphericalCoordinateStyle -> OptionValue[SphericalCoordinateStyle]];
 
-(* #SurfaceReplace ********************************************************************************)
-SurfaceReplace[surf_?SurfaceQ, rules_] := CorticalSurface[
-  Replace[Normal[surf], rules],
-  Faces -> Faces[surf]];
+(* #SurfaceResample *******************************************************************************)
+Options[SurfaceResample] = Prepend[
+  FilterRules[Options[Surface], Except[Field]],
+  Method -> Nearest];
+SurfaceResample[a_?SurfaceQ, b_?SurfaceQ, opts:OptionsPattern[]] := Catch[
+  If[Length[Field[a]] == Length[Field[b]] && VertexList[a] == VertexList[b],
+    WithField[b, Field[a]],
+    Surface[
+      VertexList[b],
+      Sequence@@FilterRules[{opts}, Except[Method]],
+      FaceList -> FaceList[b],
+      Field -> With[
+        {method = OptionValue[Method]},
+        Switch[
+          method,
+          Nearest, With[
+            {nearest = Nearest[VertexList[a] -> Automatic],
+             F = Field[a]},
+            Map[Function[F[[First[nearest[#]]]]], VertexList[b]]],
+          (Interpolation|{Interpolation, ___}), With[
+            {interp = Interpolation[
+               MapThread[List, {VertexList[a], Field[a]}],
+               Sequence@@If[ListQ[method], Rest[methods], {}]]},
+            Map[interp, VertexList[b]]],
+          (ListInterpolation|{ListInterpolation, ___}), With[
+            {interp = ListInterpolation[
+               MapThread[List, {VertexList[a], Field[a]}],
+               Sequence@@If[ListQ[method], Rest[methods], {}]]},
+            Map[interp, VertexList[b]]],
+          _, (
+            Message[
+              SurfResample::badarg,
+              Method,
+              "must be Nearest/Interpolation/ListInterpolation"];
+            Throw[$Failed])]]]]];
 
-(* #SurfaceEdges **********************************************************************************)
-SurfaceEdges[surf_?SurfaceQ] := If[SurfaceName[surf] =!= surf,
-  SurfaceEdges[SurfaceName[surf]],
+(* #MapConvexHull *********************************************************************************)
+MapConvexHull[map_?MapQ] := If[MapName[map] =!= map,
+  MapHull[MapName[map]],
+  With[
+    {res = Check[ConvexHull[VertexList[map]], $Failed]},
+    If[res === $Failed, res, (map /: MapConvexHull[map] = res)]]];
+
+(* #MapHull ***************************************************************************************)
+MapHull[map_?MapQ] := If[MapName[map] =!= map,
+  MapHull[MapName[map]],
+  With[
+    {res = Check[
+       With[
+         {hull = Cases[
+            Tally[Flatten[Subsets[#,{2}]& /@ FaceList[map], 1]],
+            {edge_List, 1} :> edge,
+            {1}],
+          X = VertexList[map]},
+         (* any edge that appears only once is on the hull *)
+         SortBy[
+           Union[Flatten[hull]],
+           Pi + ArcTan[X[[#, 1]], X[[#, 2]]]]],
+       $Failed]},
+    If[res === $Failed, res, (map /: MapHull[map] = res)]]];
+
+(* #EdgeList **************************************************************************************)
+EdgeList[surf_?SurfaceQ] := If[SurfaceName[surf] =!= surf,
+  EdgeList[SurfaceName[surf]],
   With[
     {res = Check[
        Union@Map[
          Sort,
-         Flatten[Map[Subsets[#,{2}]&, Faces[surf]], 1]],
+         Flatten[Map[Subsets[#,{2}]&, FaceList[surf]], 1]],
        $Failed]},
-    If[res === $Failed, res, (surf /: SurfaceEdges[surf] = res)]]];
+    If[res === $Failed, res, (surf /: EdgeList[surf] = res)]]];
+EdgeList[map_?MapQ] := If[MapName[map] =!= map,
+  EdgeList[MapName[map]],
+  With[
+    {res = Union@Map[
+       Sort,
+       Flatten[Map[Subsets[#,{2}]&, FaceList[map]], 1]]},
+    If[res === $Failed, res, (map /: EdgeList[map] = res)]]];
 
-(* #SurfaceNeighborhoods **************************************************************************)
-SurfaceNeighborhoods[surf_?SurfaceQ] := If[SurfaceName[surf] =!= Surf,
-  SurfaceNeighborhoods[SurfaceName[surf]],
+(* #EdgeLengths ***********************************************************************************)
+EdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {EL = Transpose[EdgeList[surf]]},
+  With[
+    {X1 = Transpose[X[[EL[[1]]]]],
+     X2 = Transpose[X[[EL[[2]]]]]},
+    Sqrt[
+      Plus[
+        (X1[[1]] - X2[[1]])^2,
+        (X1[[2]] - X2[[2]])^2,
+        (X1[[3]] - X2[[3]])^2]]]];
+EdgeLengths[surf_] := Which[
+  SurfaceQ[surf] && surf =!= SurfaceName[surf], EdgeLengths[SurfaceName@surf],
+  MapQ[surf] && surf =!= MapName[surf], EdgeLengths[MapName@surf],
+  True, With[
+    {res = Check[EdgeLengths[surf, VertexList[surf]], $Failed]},
+    If[res === $Failed || !ListQ[res], $Failed, (surf /: EdgeLengths[surf] = res)]]];
+
+(* #FaceAngles ************************************************************************************)
+FaceAngles[surf_ /; MapQ[surf] || SurfaceQ[surf], X_] := With[
+  {F = Transpose[FaceList[surf]]},
+  With[
+    {Xf = X[[#]]& /@ F},
+    With[
+      {dX = Transpose /@ {
+         (Xf[[2]] - Xf[[1]]),
+         (Xf[[3]] - Xf[[2]]),
+         (Xf[[1]] - Xf[[3]])}},
+      With[
+        {normed = Map[
+           With[{lens = Sqrt[Total[#^2]]}, (#/lens)& /@ #]&,
+           dX]},
+        Transpose[
+          ArcCos[
+            {Total[normed[[1]] * -normed[[3]]],
+             Total[normed[[2]] * -normed[[1]]],
+             Total[normed[[3]] * -normed[[2]]]}]]]]]];
+FaceAngles[surf_] := Which[
+  SurfaceQ[surf] && surf =!= SurfaceName[surf], FaceAngles[SurfaceName@surf],
+  MapQ[surf] && surf =!= MapName[surf], FaceAngles[MapName@surf],
+  True, With[
+    {res = Check[FaceAngles[surf, VertexList[surf]], $Failed]},
+    If[res === $Failed || !ListQ[res], $Failed, (surf /: FaceAngles[surf] = res)]]];
+
+(* #NeighborhoodList ******************************************************************************)
+NeighborhoodList[surf_?SurfaceQ] := If[SurfaceName[surf] =!= surf,
+  NeighborhoodList[SurfaceName[surf]],
   With[
     {res = Check[
        With[
-         {V = Vertices[surf]},
+         {V = VertexList[surf]},
          Last[
            Reap[
              Scan[
@@ -745,7 +863,7 @@ SurfaceNeighborhoods[surf_?SurfaceQ] := If[SurfaceName[surf] =!= Surf,
                      Sow[pair[[1]], pair[[2]]];
                      Sow[pair[[2]], pair[[1]]]],
                    Subsets[face, {2}]]],
-               Faces[surf]],
+               FaceList[surf]],
              Range[Length[V]],
              Function[{id, neighbors},
                Apply[
@@ -759,77 +877,13 @@ SurfaceNeighborhoods[surf_?SurfaceQ] := If[SurfaceName[surf] =!= Surf,
                       ][[All, 1;;2]]},
                      SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]],
        $Failed]},
-    If[res === $Failed, $Failed, (surf /: SurfaceNeighborhoods[surf] = res)]]];
-
-(* #SurfaceResample *******************************************************************************)
-Options[SurfaceResample] = Prepend[
-  FilterRules[Options[CorticalSurface], Except[Field]],
-  Method -> Nearest];
-SurfaceResample[a_?SurfaceQ, b_?SurfaceQ, opts:OptionsPattern[]] := Catch[
-  If[Length[Field[a]] == Length[Field[b]] && Vertices[a] == Vertices[b],
-    WithField[b, Field[a]],
-    CorticalSurface[
-      Vertices[b],
-      Sequence@@FilterRules[{opts}, Except[Method]],
-      Faces -> Faces[b],
-      Field -> With[
-        {method = OptionValue[Method]},
-        Switch[
-          method,
-          Nearest, With[
-            {nearest = Nearest[Vertices[a] -> Automatic],
-             F = Field[a]},
-            Map[Function[F[[First[nearest[#]]]]], Vertices[b]]],
-          (Interpolation|{Interpolation, ___}), With[
-            {interp = Interpolation[
-               MapThread[List, {Vertices[a], Field[a]}],
-               Sequence@@If[ListQ[method], Rest[methods], {}]]},
-            Map[interp, Vertices[b]]],
-          (ListInterpolation|{ListInterpolation, ___}), With[
-            {interp = ListInterpolation[
-               MapThread[List, {Vertices[a], Field[a]}],
-               Sequence@@If[ListQ[method], Rest[methods], {}]]},
-            Map[interp, Vertices[b]]],
-          _, (
-            Message[
-              SurfResample::badarg,
-              Method,
-              "must be Nearest/Interpolation/ListInterpolation"];
-            Throw[$Failed])]]]]];
-(* Alias for surface resample that self-hashes like surfaces *)
-(*Unprotect[Rule];
-Rule[a_?SurfaceQ, b_?SurfaceQ] := With[
-  {res = SurfaceResample[a, b]},
-  If[res =!= $Failed, 
-    Unprotect[Rule];
-    Set[Rule[a,b], res];
-    Protect[Rule]];
-  res];
-Protect[Rule];*)
-
-(* #MapHull ***************************************************************************************)
-MapHull[map_?MapQ] := If[MapName[map] =!= map,
-  MapHull[MapName[map]],
-  With[
-    {res = Check[ConvexHull[Vertices[map]], $Failed]},
-    If[res === $Failed, res, (map /: MapHull[map] = res)]]];
-
-(* #MapEdges **************************************************************************************)
-MapEdges[map_?MapQ] := If[MapName[map] =!= map,
-  MapEdges[MapName[map]],
-  With[
-    {res = Union@Map[
-       Sort,
-       Flatten[Map[Subsets[#,{2}]&, Faces[map]], 1]]},
-    If[res === $Failed, res, (map /: MapEdges[map] = res)]]];
-
-(* #MapNeighborhoods ******************************************************************************)
-MapNeighborhoods[map_?MapQ] := If[MapName[map] =!= map,
-  MapNeighborhoods[MapName[map]],
+    If[res === $Failed, $Failed, (surf /: NeighborhoodList[surf] = res)]]];
+NeighborhoodList[map_?MapQ] := If[MapName[map] =!= map,
+  NeighborhoodList[MapName[map]],
   With[
     {res = Check[
       With[
-        {V = Vertices[map]},
+        {V = VertexList[map]},
           Last[
             Reap[
               Scan[
@@ -839,7 +893,7 @@ MapNeighborhoods[map_?MapQ] := If[MapName[map] =!= map,
                       Sow[pair[[1]], pair[[2]]];
                       Sow[pair[[2]], pair[[1]]]],
                     Subsets[face, {2}]]],
-                Faces[map]],
+                FaceList[map]],
               Range[Length[V]],
               Function[{id, neighbors},
                 Apply[
@@ -853,30 +907,65 @@ MapNeighborhoods[map_?MapQ] := If[MapName[map] =!= map,
                        ][[All, 1;;2]]},
                       SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]],
       $Failed]},
-    If[res === $Failed, res, (map /: MapNeighborhoods[map] = res)]]];
+    If[res === $Failed, res, (map /: NeighborhoodList[map] = res)]]];
+
+(* $FacesIndex ************************************************************************************)
+FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, FacesIndex[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, FacesIndex[SurfaceName[surf]],
+  True, With[
+    {res = Check[
+       Last@Reap[
+         MapIndexed[Sow[#2,#1]&, FaceList[surf], {2}],
+         Range[Length@VertexList[surf]],
+         Function[Sequence@@#2]],
+       $Failed]},
+    If[res === $Failed || !ListQ[res], $Failed, (surf /: FacesIndex[surf] = res)]]];
+
+(* #NeighborhoodAngles ****************************************************************************)
+NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapIndexed[
+  Function[
+    With[
+      {x = Transpose[X[[#1]]],
+       x0 = X[[#2[[1]]]]},
+      With[
+        {dx = MapThread[Subtract, {x, x0}]},
+        With[
+          {norms = Sqrt[Total[dx^2]]},
+          ArcCos[
+            Total[
+              ((# * RotateLeft[#]) / (norms * RotateLeft[norms]))& /@ dx]]]]]],
+  NeighborhoodList[surf]];
+NeighborhoodAngles[surf_] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodAngles[SurfaceName[surf]],
+  True, With[
+    {res = Check[NeighborhoodAngles[surf, VertexList[surf]], $Failed]},
+    If[res === $Failed || !ListQ[res], $Failed, (surf /: NeighborhoodAngles[surf] = res)]]];
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
-Vertices[Rule[f_?FieldQ, s_?SurfaceQ]] := Vertices[s];
+VertexList[Rule[f_?FieldQ, s_?SurfaceQ]] := VertexList[s];
+VertexFilter[Rule[f_?FieldQ, s_?SurfaceQ]] := VertexFilter[s];
+FaceFilter[Rule[f_?FieldQ, s_?SurfaceQ]] := FaceFilter[s];
 Field[Rule[f_?FieldQ, s_?SurfaceQ]] := Field[f];
-Faces[Rule[f_?FieldQ, s_?SurfaceQ]] := Faces[s];
+FaceList[Rule[f_?FieldQ, s_?SurfaceQ]] := FaceList[s];
 Polygons[Rule[f_?FieldQ, s_?SurfaceQ]] := Polygons[s];
 SurfaceQ[Rule[f_?FieldQ, s_?SurfaceQ]] := True;
 SurfaceName[Rule[f_?FieldQ, s_?SurfaceQ]] := SurfaceName[s];
 
 WithField[s_?SurfaceQ, f_List] := Rule[f, s];
-Vertices[Rule[f_List, s_?SurfaceQ]] := Vertices[s];
+VertexList[Rule[f_List, s_?SurfaceQ]] := VertexList[s];
+VertexFilter[Rule[f_List, s_?SurfaceQ]] := VertexFilter[s];
+FaceFilter[Rule[f_List, s_?SurfaceQ]] := FaceFilter[s];
 Field[Rule[f_List, s_?SurfaceQ]] := f;
-Faces[Rule[f_List, s_?SurfaceQ]] := Faces[s];
+FaceList[Rule[f_List, s_?SurfaceQ]] := FaceList[s];
 Polygons[Rule[f_List, s_?SurfaceQ]] := Polygons[s];
 SurfaceQ[Rule[f_List, s_?SurfaceQ]] := True;
 SurfaceName[Rule[f_List, s_?SurfaceQ]] := SurfaceName[s];
 
-WithField[m_?MapQ, f_?FieldQ] := Rule[f, m];
-Vertices[Rule[f_?FieldQ, m_?MapQ]] := Vertices[m];
-Filter[Rule[f_?FieldQ, m_?MapQ]] := Filter[m];
 Radius[Rule[f_?FieldQ, m_?MapQ]] := Radius[m];
-Surface[Rule[f_?FieldQ, m_?MapQ]] := Surface[m];
+ProjectedSurface[Rule[f_?FieldQ, m_?MapQ]] := ProjectedSurface[m];
 OrientPoint[Rule[f_?FieldQ, m_?MapQ]] := m;
 InverseProjectionDispatch[Rule[f_?FieldQ, m_?MapQ]] := InverseProjectionDispatch[m];
 InverseProjectionTransform[Rule[f_?FieldQ, m_?MapQ]] := InverseProjectionTransform[m];
@@ -889,12 +978,17 @@ Domain[Rule[f_?FieldQ, m_?MapQ]] := Domain[m];
 Field[Rule[f_?FieldQ, m_?MapQ]] := Part[Field[f], DomainIndices[m]];
 MapQ[Rule[f_?FieldQ, m_?MapQ]] := True;
 MapName[Rule[f_?FieldQ, m_?MapQ]] := MapName[m];
+VertexFilter[Rule[f_?FieldQ, m_?MapQ]] := VertexFilter[m];
+FaceFilter[Rule[f_?FieldQ, m_?MapQ]] := FaceFilter[m];
+VertexList[Rule[f_?FieldQ, m_?MapQ]] := VertexList[m];
+WithField[m_?MapQ, f_?FieldQ] := Rule[f, m];
 
 WithField[m_?MapQ, f_List] := Rule[f, m];
-Vertices[Rule[f_List, m_?MapQ]] := Vertices[m];
-Filter[Rule[f_List, m_?MapQ]] := Filter[m];
+VertexList[Rule[f_List, m_?MapQ]] := VertexList[m];
+VertexFilter[Rule[f_List, m_?MapQ]] := VertexFilter[m];
+FaceFilter[Rule[f_List, m_?MapQ]] := FaceFilter[m];
 Radius[Rule[f_List, m_?MapQ]] := Radius[m];
-Surface[Rule[f_List, m_?MapQ]] := Surface[m];
+ProjectedSurface[Rule[f_List, m_?MapQ]] := ProjectedSurface[m];
 OrientPoint[Rule[f_List, m_?MapQ]] := m;
 InverseProjectionDispatch[Rule[f_List, m_?MapQ]] := InverseProjectionDispatch[m];
 InverseProjectionTransform[Rule[f_List, m_?MapQ]] := InverseProjectionTransform[m];
@@ -904,9 +998,9 @@ SurfaceRotation[Rule[f_List, m_?MapQ]] := SurfaceRotation[m];
 ProjectionTransform[Rule[f_List, m_?MapQ]] := ProjectionTransform[m];
 DomainIndices[Rule[f_List, m_?MapQ]] := DomainIndices[m];
 Domain[Rule[f_List, m_?MapQ]] := Domain[m];
-Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[Vertices[m]] := f;
-Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[Vertices[Surface[m]]] := f[[DomainIndices[m]]];
-Faces[Rule[f_List, m_?MapQ]] := Faces[m];
+Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[m]] := f;
+Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[Surface[m]]] := f[[DomainIndices[m]]];
+FaceList[Rule[f_List, m_?MapQ]] := FaceList[m];
 MapQ[Rule[f_List, m_?MapQ]] := True;
 MapName[Rule[f_List, m_?MapQ]] := MapName[m];
 
@@ -915,17 +1009,17 @@ Unprotect[Rule];
 Rule /: Center[Rule[f_?FieldQ, m_?MapQ]] := Center[m];
 Rule /: Center[Rule[a_List, m_?MapQ]] := Center[m];
 
-Rule /: Normal[Rule[f_?FieldQ, s_?SurfaceQ]] := MapThread[Rule, {Vertices[s], Field[f]}];
+Rule /: Normal[Rule[f_?FieldQ, s_?SurfaceQ]] := MapThread[Rule, {VertexList[s], Field[f]}];
 Rule /: Normal[Rule[f_?FieldQ, m_?MapQ]] := MapThread[
   Rule,
-  {Vertices[m], Part[Field[f], DomainIndices[m]]}];
-Rule /: Normal[Rule[a_List, s_?SurfaceQ]] := MapThread[Rule, {Vertices[s], a}];
+  {VertexList[m], Part[Field[f], DomainIndices[m]]}];
+Rule /: Normal[Rule[a_List, s_?SurfaceQ]] := MapThread[Rule, {VertexList[s], a}];
 Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[DomainIndices[m]] := MapThread[
   Rule,
-  {Vertices[m], a}];
-Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[Vertices[Surface[m]]] := MapThread[
+  {VertexList[m], a}];
+Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[VertexList[Surface[m]]] := MapThread[
   Rule,
-  {Vertices[m], a[[DomainIndices[m]]]}];
+  {VertexList[m], a[[DomainIndices[m]]]}];
 
 Rule[f_?FieldQ, s_?SurfaceQ] /; Length[Field[f]] != Length[Field[s]] := (
   Message[WithField::incompat];
@@ -933,13 +1027,13 @@ Rule[f_?FieldQ, s_?SurfaceQ] /; Length[Field[f]] != Length[Field[s]] := (
 Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[Surface[m]]] := (
   Message[WithField::incompat];
   $Failed);
-Rule[a_List, b_?SurfaceQ] /; Length[a] != Length[Vertices[b]] := (
+Rule[a_List, b_?SurfaceQ] /; Length[a] != Length[VertexList[b]] := (
   Message[WithField::incompat];
   $Failed);
 Rule[a_List, b_?MapQ] := (
   Message[WithField::incompat];
   $Failed
- ) /; (Length[a] != Length[Vertices[b]] && Length[a] != Length[Vertices[Surface[b]]]);
+ ) /; (Length[a] != Length[VertexList[b]] && Length[a] != Length[VertexList[Surface[b]]]);
 
 Protect[Rule];
 
@@ -949,20 +1043,25 @@ ToField[dat_List] := (
   Protect[Field];
   dat);
 
+Faces[s_] := FaceList[s];
+FaceCount[s_] := Length[FaceList[s]];
+VertexCount[s_] := Length[VertexList[s]];
+EdgeCount[s_] := Length[EdgeList[s]];
+
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
-        ConvertCoordinates, CorticalSurface, CorticalSurfaceFromVTK,
-        Domain, DomainIndices, Duplicate, Faces, Field, FieldQ,
-        Filter, InverseProjectionDispatch, InverseProjectionTransform,
-        Latitude, Longitude, MapEdges, MapHull, MapName,
-        pNeighborhoods, MapPlot, MapQ, MergeSurfaces, OrientMatrix,
-        OrientPoint, SphericalPolarAngle, Polygons,
-        ProjectionDispatch, ProjectionRotation, ProjectionShear,
-        ProjectionTransform, Radius, ReadVTK,
-        SphericalCoordinateStyle, SphericalToCartesian, Surface,
-        SurfaceEdges, SurfaceCases, SurfaceMap, SurfacePlot,
-        SurfaceProjection, SurfaceQ, SurfaceReplace, SurfaceRotation,
-        SurfaceResample, SurfaceSelect, ToField, Vertices, WithField,
-        WithFilter];
+        ConvertCoordinates, Surface, SurfaceFromVTK, Domain,
+        DomainIndices, Duplicate, EdgeList, FaceAngles,
+        FaceList, Faces, FacesIndex, Field, FieldQ, FaceFilter,
+        VertexFilter, VertexList, InverseProjectionDispatch,
+        InverseProjectionTransform, Latitude, Longitude, MapHull,
+        MapName, NeighborhoodAngles, NeighborhoodList, MapPlot, MapQ,
+        MergeSurfaces, OrientMatrix, OrientPoint, SphericalPolarAngle,
+        Polygons, ProjectionDispatch, ProjectionRotation,
+        ProjectionShear, ProjectionTransform, Radius, ReadVTK,
+        SphericalCoordinateStyle, SphericalToCartesian,
+        ProjectedSurface, SurfacePlot, SurfaceProjection, SurfaceQ,
+        SurfaceRotation, SurfaceResample, ToField, WithField,
+        WithFaceFilter, WithVertexFilter, WithVertexList];
 
 ColorCortex[instructions___] := Block[{tmp},
    With[
