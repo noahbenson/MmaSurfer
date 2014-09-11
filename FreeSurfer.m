@@ -96,6 +96,7 @@ SubjectRibbon::notfound = "Subject's ribbon file (?h.ribbon.mgz or ?h.ribbon.mgh
 SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical surface tesselation for subject sub's specified hemishere.";
 SubjectPialSurface::usage = "SubjectPialSurface[sub, hemi] yields the pial surface object for subject sub's specified hemishere.";
 SubjectWhiteSurface::usage = "SubjectWhiteSurface[sub, hemi] yields the white matter surface object for subject sub's specified hemishere.";
+SubjectMiddleSurface::usage = "SubjectMiddleSurface[sub, hemi] yields the surface formed by the mean positions of the vertices in the white matter surface and the pial surface as a surface object for subject sub's specified hemishere.";
 SubjectInflatedSurface::usage = "SubjectInflatedSurface[sub, hemi] yields the inflated surface object for subject sub's specified hemishere.";
 SubjectSphereSurface::usage = "SubjectSphereSurface[sub, hemi] yields the spherical surface object for subject sub's specified hemishere; note that this is not the registration of the subject to the FSAverage hemisphere. For that, see SubjectRegisteredSurface.";
 SubjectRegisteredSurface::usage = "SubjectRegisteredSurface[sub, hemi] yields the subject's cortical surface registered to the spherical fsaverage hemisphere for subject sub's specified hemishere.";
@@ -1398,7 +1399,23 @@ SubjectFSAverageSym[sub_String, hemi:(LH|RH)] := Rule[
   SubjectSymSurface[sub, hemi],
   $FSAverageSymSurface];
 Protect[SubjectOriginalSurface, SubjectPialSurface, SubjectInflatedSurface, SubjectSphereSurface, 
-        SubjectRegisteredSurface, SubjectSymSurface];
+        SubjectRegisteredSurface, SubjectSymSurface, SubjectWhiteSurface];
+
+SubjectMiddleSurface[sub_String, hemi:(LH|RH|RHX)] := With[
+  {res = Check[
+     WithVertexList[
+       SubjectPialSurface[sub, hemi],
+       0.5 * Plus[
+         VertexList[SubjectPialSurface[sub,hemi]],
+         VertexList[SubjectWhiteSurface[sub,hemi]]]],
+     $Failed]},
+  If[res === $Failed, 
+    res,
+    (Unprotect[SubjectMiddleSurface];
+     SubjectMiddleSurface[sub,hemi] = res;
+     Protect[SubjectMiddleSurface];
+     res)]];
+Protect[SubjectMiddleSurface];
 
 
 (* Data that can be merged with surfaces **********************************************************)
