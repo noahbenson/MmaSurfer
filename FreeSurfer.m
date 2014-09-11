@@ -95,6 +95,7 @@ SubjectRibbon::notfound = "Subject's ribbon file (?h.ribbon.mgz or ?h.ribbon.mgh
 (* Surface Functions *)
 SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical surface tesselation for subject sub's specified hemishere.";
 SubjectPialSurface::usage = "SubjectPialSurface[sub, hemi] yields the pial surface object for subject sub's specified hemishere.";
+SubjectWhiteSurface::usage = "SubjectWhiteSurface[sub, hemi] yields the white matter surface object for subject sub's specified hemishere.";
 SubjectInflatedSurface::usage = "SubjectInflatedSurface[sub, hemi] yields the inflated surface object for subject sub's specified hemishere.";
 SubjectSphereSurface::usage = "SubjectSphereSurface[sub, hemi] yields the spherical surface object for subject sub's specified hemishere; note that this is not the registration of the subject to the FSAverage hemisphere. For that, see SubjectRegisteredSurface.";
 SubjectRegisteredSurface::usage = "SubjectRegisteredSurface[sub, hemi] yields the subject's cortical surface registered to the spherical fsaverage hemisphere for subject sub's specified hemishere.";
@@ -1374,6 +1375,9 @@ SubjectOriginalSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
   $Failed];
 SubjectPialSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
   SubjectSimpleSurface[sub, hemi, "pial"],
+  $Failed];
+SubjectWhiteSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
+  SubjectSimpleSurface[sub, hemi, "white"],
   $Failed];
 SubjectInflatedSurface[sub_String, hemi:(LH|RH|RHX)] := Check[
   SubjectSimpleSurface[sub, hemi, "inflated"],
