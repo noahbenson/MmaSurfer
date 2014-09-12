@@ -80,6 +80,7 @@ Subject::usage = "Subject[directory] represents a FreeSurfer subject whose data 
 Subject::notfound = "Subject directory `1` does not seem to exist";
 Subject::baddata = "Subject directory `1` does not seem to contains FreeSurfer data: `2`";
 SubjectQ::usage = "SubjectQ[directory] yields true if and only if directory is a string referring to a directory that contains a FreeSurfer subject.";
+SubjectDirectory::usage = "SubjectDirectory[s] yields the directory from which the given subject was obtained, assuming it was obtained from a FreeSurfer subject directory, or None if not.";
 
 (* Volume Functions *)
 SubjectSegments::usage = "SubjectSegments[sub] yields an MGH object for subject sub whose values correspond to segments of the brain volume.";
@@ -1225,9 +1226,19 @@ RemoveSubject[s_] := (
   Unprotect[$Subjects];
   $Subjects = Complement[$Subjects, Cases[$Subjects, s]];
   Protect[$Subjects]);
+SubjectQ[s_] := False;
+SubjectQ[s_String] := And[
+  DirectoryQ[s],
+  DirectoryQ[FileNameJoin[{s, "surf"}]],
+  DirectoryQ[FileNameJoin[{s, "mri"}]]];
+SubjectDirectory[s_?SurfaceQ] := If[SurfaceName[s] =!= s,
+  SubjectDirectory[SurfaceName[s]],
+  None];
+SubjectDirectory[s_?MapQ] := SubjectDirectory[ProjectedSurface[s]];
 Protect[AddFreeSurferHome, RemoveFreeSurferHome, 
         AddSubjectsDir, RemoveSubjectsDir, 
-        AddSubject, RemoveSubject];
+        AddSubject, RemoveSubject,
+        SubjectQ, SubjectDirectory];
 
 
 (* Volume labels from the LUT (for use with aseg.mgz) *********************************************)
@@ -1338,7 +1349,8 @@ SubjectSimpleSurface[sub_String /; DirectoryQ[sub], hemi:(LH|RH|RHX), surf_Strin
     $Failed]},
   If[dat === $Failed, 
     $Failed,
-    Set[SubjectSimpleSurface[sub, hemi, surf], dat]]];
+    (dat /: SubjectDirectory[dat] = sub;
+     Set[SubjectSimpleSurface[sub, hemi, surf], dat])]];
 SubjectSimpleCurv[sub_String /; DirectoryQ[sub], hemi:(LH|RH|RHX), surf_String] := With[
   {dat = Check[
     With[

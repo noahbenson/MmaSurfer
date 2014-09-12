@@ -247,6 +247,7 @@ SubjectRetinotopy[sub_, hemi:(LH|RH)] := With[
     (Unprotect[SubjectRetinotopy];
      Set[SubjectRetinotopy[sub, hemi], retino];
      Protect[SubjectRetinotopy];
+     retino /: SubjectDirectory[retino] = sub;
      retino)]];
 SubjectPolarAngle[sub_, hemi:(LH|RH)] := With[
   {retino = Check[
@@ -259,6 +260,7 @@ SubjectPolarAngle[sub_, hemi:(LH|RH)] := With[
     (Unprotect[SubjectPolarAngle];
      Set[SubjectPolarAngle[sub, hemi], retino];
      Protect[SubjectPolarAngle];
+     retino /: SubjectDirectory[retino] = sub;
      retino)]];
 SubjectEccentricity[sub_, hemi:(LH|RH)] := With[
   {retino = Check[
@@ -271,6 +273,7 @@ SubjectEccentricity[sub_, hemi:(LH|RH)] := With[
     (Unprotect[SubjectEccentricity];
      Set[SubjectEccentricity[sub, hemi], retino];
      Protect[SubjectEccentricity];
+     retino /: SubjectDirectory[retino] = sub;
      retino)]];
 SubjectVisualArea[sub_, hemi:(LH|RH)] := With[
   {retino = Check[
@@ -283,6 +286,7 @@ SubjectVisualArea[sub_, hemi:(LH|RH)] := With[
     (Unprotect[SubjectVisualArea];
      Set[SubjectVisualArea[sub, hemi], retino];
      Protect[SubjectVisualArea];
+     retino /: SubjectDirectory[retino] = sub;
      retino)]];
 
 Protect[
