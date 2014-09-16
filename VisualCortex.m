@@ -41,6 +41,12 @@ ComplexToCoordinate::usage = "ComplexToCoordinate[z] yields {Re[z], Im[z]} for a
 CoordinateToComplex::usage = "CoordinateToComplex[{x,y}] yields x + I*y for real x and y.
 CoordinateToComplex[{{x1,y1},{x2,y2}...}] yields a list of zi = xi + yi*I.
 CoordinateToComplex[x, y] is equivalent to CoordinateToComplex[Thread[{x,y}]].";
+CoordinateToVisualAngle::usage = "CoordinateToVisualAngle[x, y] yields the visual angle coordinate {\[Theta], \[Rho]} of the point given in the visual field by {x,y}. The polar angle is \[Theta] and is between -180 and 180 (degrees) with negative values indicating the left visual field, and the eccentricity value is \[Rho] and is between 0 and \[Infinity]. If the x and y arguments are equally sized lists, the funtion is automatically threaded over the arguments.
+CoordinateToVisualAngle[{x,y}] for atomic x and y is equivalent to CoordinateToVisualAngle[x,y].
+CoordinateToVisualAngle[{{x1, y1}, {x2, y2}, ...}] automatically threads the CoordinateToVisualAngle function across all given points. ";
+VisualAngleToCoordinate::usage = "VisualAngleToCoordinate[\[Theta], \[Rho]] yields the cartesian coordinate {x,y} of the point in the visual field corresponding the polar angle \[Theta] and eccentricity \[Rho] where \[Theta] must be between -180 and 180 (degrees) with negative degrees representing the left visual field and the eccentricity \[Rho] should be between 0 and \[Infinity] (though negative values are accepted). If the \[Theta] and \[Rho] arguments are equally sized lists, then the result is automatically threaded over them.
+VisualAngleToCoordinate[{\[Theta], \[Rho]] is equivalent to VisualAngleToCoordinate[\[Theta], \[Rho]].
+VisualAngleToCoordinate[{{\[Theta]1, \[Rho]1}, {\[Theta]2, \[Rho]2}, ...}] is automatically threaded over all the individual \[Theta] and \[Rho] values.";
 
 (* Visual Areas ***********************************************************************************)
 VisualAreaQ::usage = "VisualAreaQ[area] yields true if and only if area is a valid visual area id.";
@@ -152,8 +158,25 @@ CoordinateToComplex[xy_List] := Which[
   Length[xy] == 0, {},
   ListQ[First[xy]], With[{tr = Transpose[xy]}, tr[[1]] + I*tr[[2]]],
   True, xy[[1]] + I * xy[[2]]];
+CoordinateToVisualAngle[x_, y_] := {90 - 180/Pi*ArcTan[x,y], Sqrt[x^2 + y^2]};
+CoordinateToVisualAngle[{x:Except[_List], y:Except[_List]}] := {
+  90 - 180/Pi*ArcTan[x,y],
+  Sqrt[x^2 + y^2]};
+CoordinateToVisualAngle[l_List /; MatchQ[Dimensions[l], {_,2}]] := With[
+  {tr = Transpose[l]},
+  Transpose[
+    {90 - 180/Pi*ArcTan[tr[[1]], tr[[2]]],
+     Sqrt[tr[[1]]^2 + tr[[2]]^2]}]];
+VisualAngleToCoordinate[t_, r_] := r * {Cos[Pi/180*t], Sin[Pi/180*t]};
+VisualAngleToCoordinate[{t:Except[_List], r:Except[_List]}] := r * {
+  Cos[Pi/180*(90 - t)],
+  Sin[Pi/180*(90 - t)]};
+VisualAngleToCoordinate[l_List /; MatchQ[Dimensions[l], {_,2}]] := With[
+  {tr = Transpose[l]},
+  Transpose[
+    tr[[2]] * {Cos[Pi/180*(90 - tr[[1]])], Sin[Pi/180*(90 - tr[[1]])]}]];
 Protect[VisualAngleToComplex, ComplexToVisualAngle, ComplexToPolarAngle, ComplexToEccentricity,
-        CoordinateToComplex, ComplexToCoordinate];
+        CoordinateToComplex, ComplexToCoordinate, CoordinateToVisualAngle, VisualAngleToCoordinate];
 
 $VisualAreasData = {
   1  -> {"Name" -> "V1 Dorsal",  "Areas" -> {"V1"}, "Simple" -> 1, "Stream" -> "Dorsal"},
@@ -815,10 +838,10 @@ With[
     {Black, Purple, Red, Yellow, Green},
     Table[Blend[{Green, Cyan}, (u - 20.0)/20.0], {u, 25, 40, 5}],
     Table[Blend[{Cyan, White}, (u - 40.0)/50.0], {u, 45, 90, 5}]]},
-CorticalColor[{PolarAngle,LH}] = {{0,180}, angleColors};
-CorticalColor[{PolarAngle,RH}] = {{-180,0}, Reverse[angleColors]};
-CorticalColor[PolarAngle] = {{-180,180}, Join[Reverse[angleColors],Rest[angleColors]]};
-CorticalColor[Eccentricity] = {{0,90}, eccenColors};];
+  CorticalColor[{PolarAngle,LH}] = {{0,180}, angleColors};
+  CorticalColor[{PolarAngle,RH}] = {{-180,0}, Reverse[angleColors]};
+  CorticalColor[PolarAngle] = {{-180,180}, Join[Reverse[angleColors], Rest[angleColors]]};
+  CorticalColor[Eccentricity] = {{0,90}, eccenColors};];
 
 PolarAngleLegend[hemi : (LH|RH), opts___Rule] := DensityPlot[
   If[hemi === LH, ArcTan[x, y], ArcTan[90 - x, y]],

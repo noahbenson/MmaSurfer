@@ -456,7 +456,7 @@ Options[SurfaceProjection] = {
   Radius -> Automatic,
   OrientPoint -> Automatic,
   Duplicate -> None,
-  VertexFilter -> None
+  VertexFilter -> None,
   FaceFilter -> None};
 SurfaceProjection[surf_, OptionsPattern[]] := Catch[
   With[
@@ -573,8 +573,9 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
               sym,
               Normal[sym],
               Replace[
-                Select[Domain[sym], TrueQ[uFiltFn[#[[1]], #[[2]]]]&],
-                ProjectionDispatch[sym]]];
+                Select[Domain[sym], TrueQ[uFilt[#[[1]], #[[2]]]]&],
+                ProjectionDispatch[sym],
+                {1}]];
             sym /: VertexList[sym] := TagSet[sym, VertexList[sym], Normal[sym][[All,1]]];
             sym /: VertexIndexDispatch[sym] := TagSet[
               sym,
@@ -694,7 +695,9 @@ MergePolygons[polygons_List, X_List, categories_List] := With[
 
 (* #SurfacePlot ***********************************************************************************)
 Options[SurfacePlot] = Join[
-  Options[Graphics3D],
+  FilterRules[
+    Options[Graphics3D],
+    Except[ColorFunction|ColorFunctionScaling|Lighting|Boxed]],
   {ColorFunction -> Automatic,
    ColorFunctionScaling -> False,
    Lighting -> "Neutral",
