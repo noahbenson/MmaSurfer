@@ -1153,6 +1153,16 @@ SetCorticalColor[arg_, val_] := (
 Attributes[SetCorticalColor] = Attributes[Set];
 CorticalColor /: Set[CorticalColor[a_], v_] := SetCorticalColor[a, v];
 
+SetDelayedCorticalColor[arg_, val_] := (
+  Unprotect[CorticalColor];
+  CorticalColor /: SetDelayed[CorticalColor[a_], v_] =.;
+  SetDelayed[CorticalColor[arg], val];
+  CorticalColor /: SetDelayed[CorticalColor[a_], v_] := SetDelayedCorticalColor[a, v];
+  Protect[CorticalColor];
+  Null);
+Attributes[SetDelayedCorticalColor] = Attributes[SetDelayed];
+CorticalColor /: SetDelayed[CorticalColor[a_], v_] := SetDelayedCorticalColor[a, v];
+
 Protect[CorticalColor, ColorCortex, Curvature];
 
 End[];
