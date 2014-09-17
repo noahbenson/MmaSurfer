@@ -728,7 +728,7 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
            {ZZ, V}],
          MergePolygons[F, V, cfn /@ ZZ]]}]],
   Sequence@@FilterRules[
-    {opts},
+    Join[{opts}, Options[SurfacePlot]],
     Except[ColorFunction|ColorFunctionScaling]]];
 
 (* #WithVertexList **********************************************************************************)
