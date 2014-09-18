@@ -18,8 +18,6 @@ Faces::usage = "Faces[s] is an alias for FaceList[s].";
 FaceCount::usage = "FaceCount[s] yields the count of all faces in the surface or map s.";
 FaceAngles::usage = "FaceAngles[s] yields a list of the angles (in radians) of each edge in the FaceList[s] where s may be a surface or a map. FaceAngles[s, X] yields the angles for s if the vertices in s had coordinates equal to those in the list X.";
 FacesIndex::usage = "FacesIndex[s] yields a list of the indices into FaceList[s] such that the i'th element in FacesIndex[s] is the list of indices at which the i'th vertex in VertexList[s] appears in FaceList[s].";
-NeighborhoodAngles::usage = "NeighborhoodAngles[s] yields a list of the angles of each angle in in the surface or map s such that for the i'th entry in the VertexList[s] of the surface or map s, the i'th entry of the NeighborhoodAngles[s] list is a list of the angles around the i'th vertex such that the first angle is the angle between the virst two entries of the i'th element of the NeighborhoodList[s]. NeighborhoodAngles[s, X] yields the neighborhood angles for s if the vertices of s were replaced with the vertices in the list X.";
-NeighborhoodBisectors::usage = "NeighborhoodBisectors[s] yeilds a list of the vectors that bisect each angle in the neighborhood of each vertex in the surface or map s. The result is equivalent to that produced by NeighborhoodAngles[s], but each angle is replaced by the unit vector that bisects that angle. NeighborhoodBisectors[s, X] yields the neighborhood bisecting vectors for the points given by the coordinate matrix X.";
 Longitude::usage = "Longitude is a keyword that represents the longitude (identical to azimuth angle) in spherical coordinates.";
 Latitude::usage = "Latitude is a keyword that represents the latitude in spherical coordinates.";
 Radius::usage = "Radius is a keyword that represents the radius of a surface-to-map projection (see SurfaceProjection).";
@@ -112,6 +110,15 @@ SurfacePlot::usage = "SurfacePlot[surf] yields a plot of the surface object surf
 SurfaceResample::usage = "SurfaceResample[surf1, surf2] yields a surface equivalent to surf2 but such that the field of the surface has been resampled from surf1. All options except the Field option of Surface are accepted and passed verbatim; a Method option may also specify Nearest (default) for nearest-neighbor interpolation, Interpolation, or List interpolation, for their respective functions. In the latter two cases, A list may be given instead of the argument such that the first argument is Interpolation or LitInterpolation and the remaining elements of the list are options to pass to these functions; e.g. Method -> {Interpolation, InterpolationOrder -> 4}. Note that surf1 -> surf2 is equivalent to SurfaceResample[surf1, surf2] but self-hashes.";
 
 NeighborhoodList::usage = "NeighborhoodList[s] yields a list of length N (where N is the number of vertices in s) of the neighboring vertices of each vertex; each entry k of the list is a list of the integer id's of the neighbors of the kth vertex. The neighbor id's are sorted such that they are listed in a counter-clockwise order around vertex k starting from the x-axis. The argument s may be either a map or a surface.";
+NeighborhoodAngles::usage = "NeighborhoodAngles[s] yields a list of the angles of each angle in in the surface or map s such that for the i'th entry in the VertexList[s] of the surface or map s, the i'th entry of the NeighborhoodAngles[s] list is a list of the angles around the i'th vertex such that the first angle is the angle between the virst two entries of the i'th element of the NeighborhoodList[s]. NeighborhoodAngles[s, X] yields the neighborhood angles for s if the vertices of s were replaced with the vertices in the list X.";
+NeighborhoodBisectors::usage = "NeighborhoodBisectors[s] yeilds a list of the vectors that bisect each angle in the neighborhood of each vertex in the surface or map s. The result is equivalent to that produced by NeighborhoodAngles[s], but each angle is replaced by the unit vector that bisects that angle. NeighborhoodBisectors[s, X] yields the neighborhood bisecting vectors for the points given by the coordinate matrix X.";
+NeighborhoodEdgeLengths::usage = "NeighborhoodEdgeLengths[s] yields a list of the edge lengths for the neighborhood of each vertex in the surface or map s. The results are in the same order as NnighborhoodList[s] such that for the neighborhood list L, and the neighborhood edge length list G, G[[i,j]] is the length of the edge from vertex i to the vertex L[[i,j]].";
+
+EdgesEnergy::usage = "EdgesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. EdgesEnergy[s] is equivalent to EdgesEnergy[s, VertexList[s]], which is always 0. The energy of edge deformation is the sum of the squares of the deviation between the edge lengths in s and the edge lengths in X divided by the number of edges total.";
+EdgesGradient::usage = "EdgesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. The result is the gradient of the EdgesEnergy[s,X]. EdgesGradient[s] is equivalent to EdgesGradient[s,VertexList[s]], which is a list of zero-vectors.";
+AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total.";
+AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
+
 
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
@@ -868,6 +875,28 @@ EdgeLengths[surf_] := Which[
     {res = Check[EdgeLengths[surf, VertexList[surf]], $Failed]},
     If[res === $Failed || !ListQ[res], $Failed, (surf /: EdgeLengths[surf] = res)]]];
 
+(* #EdgesEnergy ***********************************************************************************)
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
+  (EdgeLengths[surf] - EdgeLengths[surf, X])^2];
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+
+(* #EdgesGradient *********************************************************************************)
+EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
+  With[
+    {dx = MapThread[Subtract, {Transpose[x], x0}]},
+    With[
+      {norms = Sqrt[Total[dx^2]]},
+      Dot[dx, 2.0 * (norms - d0) / norms]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  EdgesGradientCompiled,
+  {X, X[[#]]& /@ NeighborhoodList[surf], NeighborhoodEdgeLengths[surf]}];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+  0,
+  Dimensions[VertexList[surf]]];
+     
+
 (* #FaceAngles ************************************************************************************)
 FaceAngles[surf_?SurfaceQ[surf], X_] := With[
   {F = Transpose[FaceList[surf]]},
@@ -1034,6 +1063,56 @@ NeighborhoodBisectors[surf_] := Which[
     {res = Check[NeighborhoodBisectors[surf, VertexList[surf]], $Failed]},
     If[res === $Failed || !ListQ[res], $Failed, (surf /: NeighborhoodBisectors[surf] = res)]]];
 
+(* #NeighborhoodEdgeLengths ***********************************************************************)
+NeighborhoodEdgeLengthsCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
+  Sqrt[Total[MapThread[Subtract, {x0, Transpose[x]}]^2]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  NeighborhoodEdgeLengthsCompiled,
+  {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, NeighborhoodEdgeLengths[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodEdgeLengths[SurfaceName[surf]],
+  True, With[
+    {nel = Check[NeighborhoodEdgeLengths[surf, VertexList[surf]], $Failed]},
+    If[nel === $Failed || !ListQ[nel],
+      $Failed,
+      (surf /: NeighborhoodEdgeLengths[surf] = nel)]]];
+
+(* #AnglesGradient ********************************************************************************)
+AnglesGradientCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}, {t0s, _Real, 1}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {dx = Table[x[[i]] - x0[[i]], {i, 1, Length[x0]}]},
+      With[
+        {norms = Sqrt[Total[dx^2]]},
+        With[
+          {normed = dx/Table[norms, {Length[x0]}]},
+          With[
+            {means = 0.5*(normed + RotateLeft /@ normed)},
+            With[
+              {mnorms = Sqrt[Total[means^2]]},
+              With[
+                {scalars = -2.0*(2.0*ArcCos[mnorms] - t0s)/(mnorms*Sqrt[1.0 - mnorms^2])},
+                Total[
+                  Transpose[means*Table[scalars, {Length[x0]}]]]]]]]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[AnglesGradientCompiled];
+AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  AnglesGradientCompiled,
+  {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+    0,
+    Dimensions[VertexList[surf]]];
+
+(* #AnglesEnergy **********************************************************************************)
+AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
+  (Flatten[NeighborhoodAngles[surf] - NeighborhoodAngles[surf, X]])^2];
+AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
@@ -1142,19 +1221,21 @@ VertexCount[s_] := Length[VertexList[s]];
 EdgeCount[s_] := Length[EdgeList[s]];
 
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
-        ConvertCoordinates, Surface, SurfaceFromVTK, Domain,
-        DomainIndices, Duplicate, EdgeList, FaceAngles, FaceList,
-        Faces, FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
+        ConvertCoordinates, Surface, SurfaceFromVTK, AnglesEnergy,
+        AnglesGradient, Domain, DomainIndices, Duplicate, EdgesEnergy,
+        EdgesGradient, EdgeList, FaceAngles, FaceList, Faces,
+        FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
         VertexList, InverseProjectionDispatch,
         InverseProjectionTransform, Latitude, Longitude, MapHull,
-        MapName, NeighborhoodAngles, NeighborhoodList, MapPlot, MapQ,
-        MergeSurfaces, OrientMatrix, OrientPoint, SphericalPolarAngle,
-        Polygons, ProjectionDispatch, ProjectionRotation,
-        ProjectionShear, ProjectionTransform, Radius, ReadVTK,
+        MapName, NeighborhoodAngles, NeighborhoodEdgeLengths,
+        NeighborhoodList, MapPlot, MapQ, MergeSurfaces, OrientMatrix,
+        OrientPoint, SphericalPolarAngle, Polygons,
+        ProjectionDispatch, ProjectionRotation, ProjectionShear,
+        ProjectionTransform, Radius, ReadVTK,
         SphericalCoordinateStyle, SphericalToCartesian,
-        ProjectedSurface, SurfacePlot, SurfaceProjection, SurfaceQ,
-        SurfaceRotation, SurfaceResample, ToField,
-        VertexIndexDispatch, WithField, WithFaceFilter,
+        ProjectedSurface, SurfaeAnglesGradient, SurfacePlot,
+        SurfaceProjection, SurfaceQ, SurfaceRotation, SurfaceResample,
+        ToField, VertexIndexDispatch, WithField, WithFaceFilter,
         WithVertexFilter, WithVertexList];
 
 ColorCortex[instructions___] := Block[{tmp},
