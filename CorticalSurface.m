@@ -19,6 +19,7 @@ FaceCount::usage = "FaceCount[s] yields the count of all faces in the surface or
 FaceAngles::usage = "FaceAngles[s] yields a list of the angles (in radians) of each edge in the FaceList[s] where s may be a surface or a map. FaceAngles[s, X] yields the angles for s if the vertices in s had coordinates equal to those in the list X.";
 FacesIndex::usage = "FacesIndex[s] yields a list of the indices into FaceList[s] such that the i'th element in FacesIndex[s] is the list of indices at which the i'th vertex in VertexList[s] appears in FaceList[s].";
 NeighborhoodAngles::usage = "NeighborhoodAngles[s] yields a list of the angles of each angle in in the surface or map s such that for the i'th entry in the VertexList[s] of the surface or map s, the i'th entry of the NeighborhoodAngles[s] list is a list of the angles around the i'th vertex such that the first angle is the angle between the virst two entries of the i'th element of the NeighborhoodList[s]. NeighborhoodAngles[s, X] yields the neighborhood angles for s if the vertices of s were replaced with the vertices in the list X.";
+NeighborhoodBisectors::usage = "NeighborhoodBisectors[s] yeilds a list of the vectors that bisect each angle in the neighborhood of each vertex in the surface or map s. The result is equivalent to that produced by NeighborhoodAngles[s], but each angle is replaced by the unit vector that bisects that angle. NeighborhoodBisectors[s, X] yields the neighborhood bisecting vectors for the points given by the coordinate matrix X.";
 Longitude::usage = "Longitude is a keyword that represents the longitude (identical to azimuth angle) in spherical coordinates.";
 Latitude::usage = "Latitude is a keyword that represents the latitude in spherical coordinates.";
 Radius::usage = "Radius is a keyword that represents the radius of a surface-to-map projection (see SurfaceProjection).";
@@ -83,7 +84,8 @@ SurfaceProjection::usage = "SurfaceProjection[surf] yields a surface projection 
   Center must be a 3D cartesian point representing the center of the map to be constructed.
   Radius must be a number greater than 0 that indicates the distance from the center that the map should encompass.
   OrientPoint must be a point or a point -> an angle (which by default is 0) to use in orienting the map; the point is oriented so that it lies at the given angle in a polar-coordinate version of the map (i.e., x -> Pi/2 indicates that point x should, in the resulting map, lie on the y-axis).
-  ProjectionShear must be a shear matrix that is applied to the final map after orientation.";
+  ProjectionShear must be a shear matrix that is applied to the final map after orientation.
+  Scale must be a real number greater than 0 that instructs the projection to scale the resulting map such that the average edge length is equal to the given argument. By default, this is 1; None may be provided to indicate that no scaling should be used (in which case the result is in terms of radians).";
 SurfaceProjection::badarg = "Bad argument `1` to SurfaceProjection: `2`";
 SurfaceProjection::badfmt = "Transform argument given in unrecognized format";
 SurfaceRotation::usage = "SurfaceRotation[map] yields the rotation matrix that produces the map.";
@@ -457,7 +459,8 @@ Options[SurfaceProjection] = {
   OrientPoint -> Automatic,
   Duplicate -> None,
   VertexFilter -> None,
-  FaceFilter -> None};
+  FaceFilter -> None,
+  Scale -> 1.0};
 SurfaceProjection[surf_, OptionsPattern[]] := Catch[
   With[
     {dflt = Replace[
@@ -510,7 +513,15 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
             Message[SurfaceProjection::badarg, OrientPoint, "must be a rule or a point"];
             Throw[$Failed])}],
        uFilt = Replace[OptionValue[VertexFilter], None|False|Automatic -> (True&)],
-       fFilt = Replace[OptionValue[FaceFilter], None|Flase|Automatic -> (True&)],
+       fFilt = Replace[OptionValue[FaceFilter], None|False|Automatic -> (True&)],
+       scale = Replace[
+         OptionValue[Scale],
+         {Automatic -> 1.0,
+          None -> None,
+          r_?NumericQ /; r > 0 :> r,
+          _ :> (
+            Message[SurfaceProjection::badarg, Scale, "must be a real number > 0 or None"];
+            Throw[$Failed])}],
        sym = (SetAttributes[#, Temporary]; #)&@Unique["map"],
        scFn = Function[CartesianToSpherical[#, SphericalCoordinateStyle->{Longitude, Latitude}]],
        iscFn = Function[SphericalToCartesian[#, SphericalCoordinateStyle->{Longitude, Latitude}]]},
@@ -525,88 +536,98 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
            rotT = Transpose[SurfaceRotation[sym]],
            iopT = Transpose[Inverse[shear . OrientMatrix[sym]]],
            irotT = Transpose[Inverse[SurfaceRotation[sym]]]},
+          sym /: DomainIndices[sym] = With[
+            {cosrad = Cos[rad],
+             normmu = Normalize[mu]},
+            Flatten[
+              Position[
+                Normal[surf],
+                Rule[xyz_,_] /; Dot[Normalize[xyz], normmu] >= cosrad]]];
+          sym /: Domain[sym] = Part[Normal[surf], DomainIndices[sym]];
           With[
-            {fn = Function[Dot[scFn[Dot[#, rotT]], opT]],
-             ifn = Function[Dot[iscFn[Dot[#, iopT]], irotT]]},
-            sym /: MapQ[sym] = True;
-            sym /: MapName[sym] = sym;
-            sym /: VertexFilter[sym] = OptionValue[VertexFilter];
-            sym /: FaceFilter[sym] = fFilt;
-            sym /: ProjectedSurface[sym] = surf;
-            sym /: Center[sym] = mu;
-            sym /: ProjectionShear[sym] = shear;
-            sym /: Radius[sym] = rad;
-            sym /: OrientPoint[sym] = orient;
-            sym /: SurfaceRotation[sym] = RotationMatrix[{mu, {1, 0, 0}}];
-            sym /: ProjectionDispatch[sym] = Dispatch[
-              {pat:{Rule[{_,_,_},_]..} :> MapThread[Rule, {fn[pat[[All,1]]], pat[[All,2]]}],
-               pat:{{_,_,_}..} :> fn[pat],
-               Rule[a:{_,_,_},b_] :> Rule[First[fn[{a}]], b],
-               a:{_?AtomQ,_?AtomQ,_?AtomQ} :> First[fn[{a}]],
-               s_?SurfaceQ :> MapThread[Rule, {fn[VertexList[s]], Field[s]}],
-               _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
-            sym /: InverseProjectionDispatch[sym] = Dispatch[
-              {pat:{Rule[{_,_},_]..} :> MapThread[Rule, {ifn[pat[[All,1]]], pat[[All,2]]}],
-               pat:{{_,_}..} :> ifn[pat],
-               Rule[a:{_,_},b_] :> Rule[First[ifn[{a}]], b],
-               a:{_?AtomQ,_?AtomQ} :> First[ifn[{a}]],
-               s_?SurfaceQ :> MapThread[Rule, {ifn[VertexList[s]], Field[s]}],
-               _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
-            sym /: ProjectionTransform[sym] = Function[Replace[#, ProjectionDispatch[sym]]];
-            sym /: InverseProjectionTransform[sym] = Function[
-              Replace[#, InverseProjectionDispatch[sym]]];
-            sym /: DomainIndices[sym] := TagSet[
-              sym,
-              DomainIndices[sym],
-              With[
-                {cosrad = Cos[rad],
-                 normmu = Normalize[mu]},
-                Flatten[
-                  Position[
-                    Normal[surf],
-                    Rule[xyz_,_] /; Dot[Normalize[xyz], normmu] >= cosrad]]]];
-            sym /: Domain[sym] := TagSet[
-              sym,
-              Domain[sym],
-              Part[Normal[surf], DomainIndices[sym]]];
-            sym /: Normal[sym] := TagSet[
-              sym,
-              Normal[sym],
-              Replace[
-                Select[Domain[sym], TrueQ[uFilt[#[[1]], #[[2]]]]&],
-                ProjectionDispatch[sym],
-                {1}]];
-            sym /: VertexList[sym] := TagSet[sym, VertexList[sym], Normal[sym][[All,1]]];
-            sym /: VertexIndexDispatch[sym] := TagSet[
-              sym,
-              VertexIndexDispatch[sym],
-              Dispatch[
-                Append[
-                  MapThread[
-                    Rule, 
-                    {DomainIndices[sym], Range[Length@DomainIndices[sym]]}],
-                  _ -> Undefined]]];
-            sym /: Field[sym] := TagSet[sym, Field[sym], Normal[sym][[All,2]]];
-            sym /: FaceList[sym] := TagSet[
-              sym,
-              FaceList[sym],
-              With[
-                {dom = Dispatch[
-                   Append[
-                     Map[(# -> True)&, DomainIndices[sym]],
-                     _Integer -> False]],
-                 tr = VertexIndexDispatch[sym]},
+            {scaleMult = If[scale === None,
+               1.0,
+               With[
+                 {tmp = Dot[scFn[Dot[#, rotT]], opT]& /@ Domain[sym][[All,1]],
+                  idxDisp = Dispatch[
+                    MapThread[Rule, {DomainIndices[sym], Range[Length[Domain[sym]]]}]],
+                  idxSet = Dispatch[Append[Map[#->True&, DomainIndices[sym]], _->False]]},
+                 With[
+                   {edges = Transpose[
+                      tmp[[#]]& /@ ReplaceAll[
+                        Select[
+                          EdgeList[surf],
+                          And[#[[1]] /. idxSet, #[[2]] /. idxSet]&],
+                        idxDisp]]},
+                   scale / Mean[Norm /@ (edges[[1]] - edges[[2]])]]]]},
+            With[
+              {fn = Function[scaleMult*Dot[scFn[Dot[#, rotT]], opT]],
+               ifn = Function[Dot[iscFn[Dot[#/scaleMult, iopT]], irotT]]},
+              sym /: MapQ[sym] = True;
+              sym /: MapName[sym] = sym;
+              sym /: VertexFilter[sym] = OptionValue[VertexFilter];
+              sym /: FaceFilter[sym] = fFilt;
+              sym /: ProjectedSurface[sym] = surf;
+              sym /: Center[sym] = mu;
+              sym /: ProjectionShear[sym] = shear;
+              sym /: Radius[sym] = rad;
+              sym /: OrientPoint[sym] = orient;
+              sym /: SurfaceRotation[sym] = RotationMatrix[{mu, {1, 0, 0}}];
+              sym /: ProjectionDispatch[sym] = Dispatch[
+                {pat:{Rule[{_,_,_},_]..} :> MapThread[Rule, {fn[pat[[All,1]]], pat[[All,2]]}],
+                 pat:{{_,_,_}..} :> fn[pat],
+                 Rule[a:{_,_,_},b_] :> Rule[First[fn[{a}]], b],
+                 a:{_?AtomQ,_?AtomQ,_?AtomQ} :> First[fn[{a}]],
+                 s_?SurfaceQ :> MapThread[Rule, {fn[VertexList[s]], Field[s]}],
+                 _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
+              sym /: InverseProjectionDispatch[sym] = Dispatch[
+                {pat:{Rule[{_,_},_]..} :> MapThread[Rule, {ifn[pat[[All,1]]], pat[[All,2]]}],
+                 pat:{{_,_}..} :> ifn[pat],
+                 Rule[a:{_,_},b_] :> Rule[First[ifn[{a}]], b],
+                 a:{_?AtomQ,_?AtomQ} :> First[ifn[{a}]],
+                 s_?SurfaceQ :> MapThread[Rule, {ifn[VertexList[s]], Field[s]}],
+                 _ :> (Message[SurfaceProjection::badfmt]; Indeterminate)}];
+              sym /: ProjectionTransform[sym] = Function[Replace[#, ProjectionDispatch[sym]]];
+              sym /: InverseProjectionTransform[sym] = Function[
+                Replace[#, InverseProjectionDispatch[sym]]];
+              sym /: Normal[sym] := TagSet[
+                sym,
+                Normal[sym],
                 Replace[
-                  Select[
-                    FaceList[surf],
-                    If[fFilt[#], Apply[And, # /. dom], False]&],
-                  tr,
-                  {2}]]];
-            sym /: Polygons[sym] := TagSet[
-              sym,
-              Polygons[sym],
-              Map[VertexList[sym][[#]]&, FaceList[sym]]];
-            sym]]]]]];
+                  Select[Domain[sym], TrueQ[uFilt[#[[1]], #[[2]]]]&],
+                  ProjectionDispatch[sym],
+                  {1}]];
+              sym /: VertexList[sym] := TagSet[sym, VertexList[sym], Normal[sym][[All,1]]];
+              sym /: VertexIndexDispatch[sym] := TagSet[
+                sym,
+                VertexIndexDispatch[sym],
+                Dispatch[
+                  Append[
+                    MapThread[
+                      Rule, 
+                      {DomainIndices[sym], Range[Length@DomainIndices[sym]]}],
+                    _ -> Undefined]]];
+              sym /: Field[sym] := TagSet[sym, Field[sym], Normal[sym][[All,2]]];
+              sym /: FaceList[sym] := TagSet[
+                sym,
+                FaceList[sym],
+                With[
+                  {dom = Dispatch[
+                     Append[
+                       Map[(# -> True)&, DomainIndices[sym]],
+                       _Integer -> False]],
+                   tr = VertexIndexDispatch[sym]},
+                  Replace[
+                    Select[
+                      FaceList[surf],
+                      If[fFilt[#], Apply[And, # /. dom], False]&],
+                    tr,
+                    {2}]]];
+              sym /: Polygons[sym] := TagSet[
+                sym,
+                Polygons[sym],
+                Map[VertexList[sym][[#]]&, FaceList[sym]]];
+              sym]]]]]]];
 
 (* #StructuredRescale * ***************************************************************************)
 (* This is used be MapPlot and SurfacePlot when normalizing oddly structured  data sets in the color
@@ -839,7 +860,7 @@ EdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
       Plus[
         (X1[[1]] - X2[[1]])^2,
         (X1[[2]] - X2[[2]])^2,
-        (X1[[3]] - X2[[3]])^2]]]];
+        If[MapQ[surf], 0, (X1[[3]] - X2[[3]])^2]]]]];
 EdgeLengths[surf_] := Which[
   SurfaceQ[surf] && surf =!= SurfaceName[surf], EdgeLengths[SurfaceName@surf],
   MapQ[surf] && surf =!= MapName[surf], EdgeLengths[MapName@surf],
@@ -848,7 +869,7 @@ EdgeLengths[surf_] := Which[
     If[res === $Failed || !ListQ[res], $Failed, (surf /: EdgeLengths[surf] = res)]]];
 
 (* #FaceAngles ************************************************************************************)
-FaceAngles[surf_ /; MapQ[surf] || SurfaceQ[surf], X_] := With[
+FaceAngles[surf_?SurfaceQ[surf], X_] := With[
   {F = Transpose[FaceList[surf]]},
   With[
     {Xf = X[[#]]& /@ F},
@@ -866,6 +887,22 @@ FaceAngles[surf_ /; MapQ[surf] || SurfaceQ[surf], X_] := With[
             {Total[normed[[1]] * -normed[[3]]],
              Total[normed[[2]] * -normed[[1]]],
              Total[normed[[3]] * -normed[[2]]]}]]]]]];
+FaceAngles[surf_?MapQ[surf], X_] := With[
+  {F = Transpose[FaceList[surf]]},
+  With[
+    {Xf = X[[#]]& /@ F},
+    With[
+      {dX = Transpose /@ {
+         (Xf[[2]] - Xf[[1]]),
+         (Xf[[3]] - Xf[[2]])}},
+      With[
+        {normed = Map[
+           With[{lens = Sqrt[Total[#^2]]}, (#/lens)& /@ #]&,
+           dX]},
+        Transpose[
+          ArcCos[
+            {Total[normed[[1]] * -normed[[3]]],
+             Total[normed[[2]] * -normed[[1]]]}]]]]]];
 FaceAngles[surf_] := Which[
   SurfaceQ[surf] && surf =!= SurfaceName[surf], FaceAngles[SurfaceName@surf],
   MapQ[surf] && surf =!= MapName[surf], FaceAngles[MapName@surf],
@@ -908,34 +945,31 @@ NeighborhoodList[map_?MapQ] := If[MapName[map] =!= map,
   NeighborhoodList[MapName[map]],
   With[
     {res = Check[
-      With[
-        {V = VertexList[map]},
-          Last[
-            Reap[
-              Scan[
-                Function[{face},
-                  Scan[
-                    Function[{pair},
-                      Sow[pair[[1]], pair[[2]]];
-                      Sow[pair[[2]], pair[[1]]]],
-                    Subsets[face, {2}]]],
-                FaceList[map]],
-              Range[Length[V]],
-              Function[{id, neighbors},
-                Apply[
-                  Sequence,
-                  With[
-                    {neis = Union[neighbors]},
-                    With[
-                      {U = Dot[
-                        V[[neis]], 
-                        Transpose[RotationMatrix[{V[[id]], {0,0,1}}]]
-                       ][[All, 1;;2]]},
-                      SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]],
+       With[
+         {V = VertexList[map]},
+           Last[
+             Reap[
+               Scan[
+                 Function[{face},
+                   Scan[
+                     Function[{pair},
+                       Sow[pair[[1]], pair[[2]]];
+                       Sow[pair[[2]], pair[[1]]]],
+                     Subsets[face, {2}]]],
+                 FaceList[map]],
+               Range[Length[V]],
+               Function[{id, neighbors},
+                 Apply[
+                   Sequence,
+                   With[
+                     {neis = Union[neighbors]},
+                     With[
+                       {U = V[[neis]]},
+                       SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]],
       $Failed]},
     If[res === $Failed, res, (map /: NeighborhoodList[map] = res)]]];
 
-(* $FacesIndex ************************************************************************************)
+(* #FacesIndex ************************************************************************************)
 FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
   MapQ[surf] && MapName[surf] =!= surf, FacesIndex[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, FacesIndex[SurfaceName[surf]],
@@ -949,27 +983,57 @@ FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
     If[res === $Failed || !ListQ[res], $Failed, (surf /: FacesIndex[surf] = res)]]];
 
 (* #NeighborhoodAngles ****************************************************************************)
-NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapIndexed[
-  Function[
+NeighborhoodAngleCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
     With[
-      {x = Transpose[X[[#1]]],
-       x0 = X[[#2[[1]]]]},
+      {dx = Table[x[[i]]-x0[[i]], {i,1,Length[x0]}]},
       With[
-        {dx = MapThread[Subtract, {x, x0}]},
+        {norms = Sqrt[Total[dx^2]]},
         With[
-          {norms = Sqrt[Total[dx^2]]},
-          With[
-            {normed = (#/norms)& /@ dx},
-            ArcCos[
-              Total[
-                (# * RotateLeft[#])& /@ normed]]]]]]],
-  NeighborhoodList[surf]];
+          {normed = dx/Table[norms, {Length[x0]}]},
+          ArcCos[Total[normed*(RotateLeft /@ normed)]]]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[NeighborhoodAngleCompiled];
+NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  NeighborhoodAngleCompiled,
+  {X, X[[#]]& /@ NeighborhoodList[surf]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodAngles[SurfaceName[surf]],
   True, With[
     {res = Check[NeighborhoodAngles[surf, VertexList[surf]], $Failed]},
     If[res === $Failed || !ListQ[res], $Failed, (surf /: NeighborhoodAngles[surf] = res)]]];
+
+(* #NeighborhoodBisectors *************************************************************************)
+NeighborhoodBisectorsCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {dx = Table[x[[i]]-x0[[i]], {i,1,Length[x0]}]},
+      With[
+        {norms = Sqrt[Total[dx^2]]},
+        With[
+          {normed = dx/Table[norms, {Length[x0]}]},
+          With[
+            {means = 0.5*(normed + RotateLeft /@ normed)},
+            With[
+              {mnorms = Sqrt[Total[means^2]]},
+              Transpose[means/Table[mnorms, {Length[x0]}]]]]]]]],
+   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+   Parallelization -> True];
+Protect[NeighborhoodBisectorsCompiled];
+NeighborhoodBisectors[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  NeighborhoodBisectorsCompiled,
+  {X, X[[#]] & /@ NeighborhoodList[surf]}];
+NeighborhoodBisectors[surf_] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, NeighborhoodBisectors[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodBisectors[SurfaceName[surf]],
+  True, With[
+    {res = Check[NeighborhoodBisectors[surf, VertexList[surf]], $Failed]},
+    If[res === $Failed || !ListQ[res], $Failed, (surf /: NeighborhoodBisectors[surf] = res)]]];
+
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
