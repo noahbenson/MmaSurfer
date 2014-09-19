@@ -461,7 +461,7 @@ $DefaultSchiraV3Size = 0.38;
 $DefaultSchiraHV4Size = 0.3;
 $DefaultSchiraV3ASize = 0.3;
 $DefaultSchiraFC = {-0.14, -0.1};
-$DefaultSchiraScale = {0.35, -0.35};
+$DefaultSchiraScale = {0.35, 0.35};
 $DefaultSchiraShear = {{1, 0}, {0, 1}};
 $SchiraParameters = List[
    A :> $DefaultSchiraA,
@@ -498,8 +498,8 @@ Unprotect[$SchiraParameterPositions];
 ClearAll[$SchiraParameterPositions];
 $SchiraParameterPositions = Dispatch[
   MapThread[
-   Rule,
-   {$SchiraParameters[[All, 1]], Range[Length[$SchiraParameters]]}]];
+    Rule,
+    {$SchiraParameters[[All, 1]], Range[Length[$SchiraParameters]]}]];
 Protect[$SchiraParameterPositions];
 
 (* These actually compile the low-level Schira calculation functions *)
@@ -561,7 +561,7 @@ CompileSchiraFunction[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := 
             mtx,
             (* Note that we flip the z here so that the arrangement matchis the LH *)
             {Re[zLogPolar] - fcx0, -Im[zLogPolar], {1.0, 1.0, 1.0, 1.0, 1.0}}]]],
-      RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+      RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> True},
       Parallelization -> True,
       RuntimeAttributes -> {Listable}]],
   $Failed];
@@ -728,7 +728,12 @@ SchiraModelObjectPrep[params_List] := With[
     {mdl = SchiraModelObject[
       Dispatch[
         Join[
-          Cases[params, Except[Rule[\[CapitalPsi]|Shear|Scale|FC,_]|RuleDeayed[\[CapitalPsi]|Shear|Scale|FC,_]]],
+          Cases[
+            params,
+            Except[
+              Alternatives[
+                Rule[(\[CapitalPsi])|Shear|Scale|FC, _],
+                RuleDelayed[(\[CapitalPsi])|Shear|Scale|FC, _]]]],
           {\[CapitalPsi] -> psi,
            Shear -> shearMtx,
            Scale -> scale,
@@ -877,9 +882,8 @@ Options[SchiraParametricPlot] = Join[
    Options[ParametricPlot],
    {VisualAreas -> Automatic,
     Range -> Full}];
-SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
-  Catch[
-    With[
+SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] := Catch[
+  With[
     {epsilon = 0.000001,
      plotRangeArg = OptionValue[PlotRange],
      colorFun = OptionValue[ColorFunction],
@@ -917,13 +921,9 @@ SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
          True, None]},
       If[StringQ[msg], (Message[SchiraParametricPlot::badarg, msg]; Throw[$Failed])]];
     With[
-     {optseq = Sequence @@ FilterRules[
-        {opts},
-        ReplacePart[Options[ParametricPlot], {All, 2} -> _]],
-      optseqShow = Sequence @@ FilterRules[
-        {opts},
-        ReplacePart[Options[Show], {All, 2} -> _]],
-      rhoTrans = Function[{rho}, 90.0*rho^3.5],
+     {optseq = Sequence @@ FilterRules[{opts}, Options[ParametricPlot][[All,1]]],
+      optseqShow = Sequence @@ FilterRules[{opts}, Options[Show][[All,1]]],
+      rhoTrans = Function[90.0*#^3.5],
       thetaLower = If[range[[1, 1]] > 90,
         None,
         {range[[1, 1]], Min[{90, range[[1, 2]]}]}],
@@ -938,27 +938,42 @@ SchiraParametricPlot[mdl_SchiraModelObject, opts:OptionsPattern[]] :=
                thetaMinIdeal = If[# == 4 || # < 0, thetaLower[[1]], thetaUpper[[1]]],
                thetaMaxIdeal = If[# == -4 || # > 0, thetaUpper[[2]], thetaLower[[2]]]},
               With[
-                {thetaMin = If[# == 2 || # == 3, Max[{thetaMinIdeal, 90.0 + epsilon}], thetaMinIdeal],
-                 thetaMax = If[# == -3 || # == -2, Min[{thetaMaxIdeal, 90.0 - epsilon}], thetaMaxIdeal]},
-              ParametricPlot[
-                Part[f[theta, rhoTrans[rho]], k],
-                {theta, thetaMin, thetaMax},
-                {rho, 0, 1},
-                PlotRange -> plotRangeArg,
-                ColorFunction -> If[
-                  colorFun === Automatic || colorFun === None || colorFun === False || StringQ[colorFun], 
-                  colorFun,
-                  If[colorFunSc === False,
-                    Function[colorFun[#1,#2,#3,rhoTrans[#4]]],
-                    Function[colorFun[#1,#2,#3,rhoTrans[#4]/90.0]]]],
-                optseq]]]],
+                {thetaMin = If[# == 2 || # == 3, 
+                   Max[{thetaMinIdeal, 90.0 + epsilon}],
+                   thetaMinIdeal],
+                 thetaMax = If[# == -3 || # == -2,
+                   Min[{thetaMaxIdeal, 90.0 - epsilon}],
+                   thetaMaxIdeal]},
+                Quiet[
+                  ParametricPlot[
+                    Part[f[theta, rhoTrans[rho]], k],
+                    {theta, thetaMin, thetaMax},
+                    {rho, 0, 1},
+                    PlotRange -> plotRangeArg,
+                    ColorFunction -> If[
+                      Or[colorFun === Automatic,
+                         colorFun === None,
+                         colorFun === False,
+                         StringQ[colorFun]],
+                      colorFun,
+                      If[colorFunSc === False,
+                        Function[colorFun[#1,#2,#3,rhoTrans[#4]]],
+                        Function[colorFun[#1,#2,#3,rhoTrans[#4]/90.0]]]],
+                    optseq],
+                  {CompiledFunction::cfsa}]]]],
           areas]},
        With[
          {plotRange = With[
-            {ranges = Cases[AbsoluteOptions /@ graphics, (PlotRange -> r_) :> r, {2}]},
-         {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
-          {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]},
-         Show[graphics, PlotRange -> plotRange, optseqShow]]]]]];
+            {ranges = Cases[
+               AbsoluteOptions[#,PlotRange]& /@ graphics,
+               (PlotRange -> r_) :> r,
+               {2}]},
+           {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
+            {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]},
+         Show[
+           graphics,
+           PlotRange -> plotRange, 
+           optseqShow]]]]]];
 
 
 EccentricityStyleFunction = EccentricityStyleFunction;
@@ -1135,6 +1150,151 @@ SchiraLinePlot[mdl_SchiraModelObject, opts : OptionsPattern[]] := Catch[
                     {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
                      {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]]}, 
                Show[graphics, PlotRange -> plotRange, optseqShow]]]]]]]]];
+
+(* #CorticalPotentialTerm *************************************************************************)
+CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule})] := Catch[
+  With[
+    {mdl = First@args,
+     options = Dispatch[
+       Reap[
+         Scan[
+           Function[
+             With[
+               {name = #[[1]], val = #[[2]]},
+               Switch[name,
+                 Select, With[
+                   {idcs = Flatten@Position[
+                      Field[s],
+                      x_ /; val[x],
+                      {1},
+                      Heads -> False]},
+                   If[Length[idcs] == 0,
+                     (Message[
+                        CorticalPotentialTerm::badarg,
+                       "No indices selected via Select for SchiraModel"];
+                      Throw[$Failed]),
+                     Sow[VertexList -> idcs]]],
+                 Cases, With[
+                   {idcs = Flatten@Position[Field[s], val, {1}, Heads -> False]},
+                   If[Length[idcs] == 0,
+                     (Message[
+                        CorticalPotentialTerm::badarg,
+                        "No indices selected via Cases for SchiraModel"];
+                      Throw[$Failed]),
+                     Sow[VertexList -> idcs]]],
+                 Which, Which[
+                   !ArrayQ[val, 1, IntegerQ], (
+                     Message[
+                       CorticalPotentialTerm::badarg,
+                      "Which argument to SchiraModel type must be a non-empty 1D integer list"];
+                     Throw[$Failed]),
+                   Min[val] < 1 || Max[val] > Length[VertexList[s]], (
+                     Message[
+                       CorticalPotentialTerm::badarg,
+                       "Which argument to SchiraModel contains invalid indices"];
+                     Throw[$Failed]),
+                   True, Sow[VertexList -> val]],
+                 PolarAngle, Sow[PolarAngle -> val],
+                 Eccentricity, Sow[Eccentricity -> val],
+                 Weights, Sow[Weights -> val],
+                 Constant, Sow[Constant -> val],
+                 StandardDeviation, If[NumericQ[val] && val > 0,
+                   Sow[StandardDeviation -> val],
+                   (Message[
+                      CorticalPotentialTerm::badarg,
+                      "StandardDeviation must be a number > 0"];
+                    Throw[$Failed])],
+                 _, (
+                   Message[
+                     CorticalPotentialTerm::badarg,
+                     "Unrecognized option to SchiraModel term"];
+                   Throw[$Failed])]]],
+           Rest@args];
+        ][[2, 1]]]},
+    With[
+      {u = VertexList /. options,
+       angleFn = Replace[PolarAngle /. options, PolarAngle -> First],
+       eccenFn = Replace[Eccentricity /. options, Eccentricity -> (#[[2]] &)]},
+      If[!ListQ[u],
+        (Message[
+          CorticalPotentialTerm::badarg,
+          "no vertex list specification given to SchiraModel"];
+         Throw[$Failed])];
+      With[
+        {std = Replace[StandardDeviation /. options, StandardDeviation -> 16.0],
+         weights = Replace[
+           Weights /. options,
+           {Weights -> Table[1.0, {Length[u]}],
+            n_?NumericQ /; n >= 0 :> Table[n, {Length[u]}],
+            l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] && Length[l] == Length[u] :> l,
+            f_ :> Replace[
+              Check[f /@ Normal[s][[u]], $Failed],
+              {l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] :> l,
+               _ :> (
+                 Message[
+                   CorticalPotentialTerm::badarg,
+                   StringJoin[
+                     "Weights argument to SchiraModel must be a number >= 0, a list of such",
+                     " numbers, or a function that, when given a vertexPosition -> vertexField",
+                     " yields such a number"]];
+                 Throw[$Failed])}]}],
+         const = ReplaceAll[
+           Replace[Constant /. options, Constant -> Automatic], 
+           Automatic -> (1.0/Length[u])],
+         fn = mdl[RetinotopyToCorticalMap],
+         angles = Check[
+           Map[
+             Function[
+               With[
+                 {a = angleFn[#]},
+                 If[!NumericQ[a] || a < 0 || a > 180,
+                   Message[
+                     CorticalPotentialTerm::badarg, 
+                     "angles must be numbers between 0 and 180"],
+                   a]]],
+             Field[s][[u]]],
+           Throw[$Failed]],
+         eccen = Check[
+           Map[
+             Function[
+               With[
+                 {a = eccenFn[#]},
+                 If[!NumericQ[a] || a < 0 || a > 90,
+                   Message[
+                     CorticalPotentialTerm::badarg, 
+                     "angles must be numbers between 0 and 90"],
+                   a]]],
+             Field[s][[u]]],
+           Throw[$Failed]]},
+        If[!NumericQ[const] || const < 0,
+          (Message[
+             CorticalPotentialTerm::badarg,
+             "Constant argument to SchiraModel must be a number >= 0"];
+          Throw[$Failed])];
+        With[
+          {energy = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+             With[
+               {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+               With[
+                 {norms = Sqrt[Total[dx^2]]},
+                 1.0 - Exp[-0.5*(norms/std)^2]]],
+             RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+             Parallelization -> True],
+           grad = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+             With[
+               {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+               With[
+                 {norms = Sqrt[Total[dx^2]]},
+                 With[
+                   {scale = Exp[-0.5*(norms/std)^2]/std^2},
+                   {Total[dx[[1]]*scale], Total[dx[[2]]*scale]}]]],
+             RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+             Parallelization -> True],
+           attrs = Check[
+             MapThread[fn[#1, #2][[1 ;; 4]] &, {angles, eccen}],
+             Throw[$Failed]]},
+          {Function[const*Total[weights*MapThread[energy, {#, attrs}]]],
+           Function[const*MapThread[#1*grad[#2, #3] &, {weights, #, attrs}]]}]]]]];
 
 Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas,
         SchiraLinePlot, EccentricityStyleFunction, PolarAngleStyleFunction,
