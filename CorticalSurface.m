@@ -118,12 +118,16 @@ EdgesEnergy::usage = "EdgesEnergy[s, X] yeilds the scalar energy for the given s
 EdgesGradient::usage = "EdgesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. The result is the gradient of the EdgesEnergy[s,X]. EdgesGradient[s] is equivalent to EdgesGradient[s,VertexList[s]], which is a list of zero-vectors.";
 AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total.";
 AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
-CorticalPotentialFunction::usage = "CorticalPotentialFunction[s] yields the pair {energyFn, gradientFn} for the reference surface or map s. A call of energyFn[X], for a list of vertex positions X, yields the total potential energy of the configuration X while a call of gradientFn[X] yields a flattened gradient matrix, suitable for use with Mathematica's minimization functions such as FindArgMin.
+CorticalPotentialField::usage = "CorticalPotentialField[s, options...] yields a symbol f which, when evaluated as f[X] for a numeric list X with dieensios equial to those of VertexList[s], yields the potential energy of the vertex configuration X according to the options given. Similarly, Gradient[f, X] yields the flattened gradient vector for the conformation X and is appropriate for passing to optimization functions that require a gradient such as FindArgMin.
 The following options are accepted:
   EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
-  AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).";
-EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialFunction that specifies the raltive strength of the edge forces.";
-AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialFunction that specifies the raltive strength of the angle forces.";
+  AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
+  Other options may be specified if they are defined via the CorticalPotentialTerm interface.";
+CorticalPotentialField::badterm = "Bad term given to CorticalPotentialField: `1`";
+EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialField that specifies the raltive strength of the edge forces.";
+AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
+CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
+CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
 
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
@@ -1113,54 +1117,125 @@ AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
     Dimensions[VertexList[surf]]];
 
-(* #CorticalPotentialFunction *********************************************************************)
-Options[CorticalPotentialFunction] = {
-  AnglesConstant -> Automatic,
-  EdgesConstant -> Automatic};
-CorticalPotentialFunction[surf_ /; SurfaceQ[surf] || MapQ[surf], OptionsPattern[]] := Catch[
+(* #CorticalPotentialField *********************************************************************)
+CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := Catch[
   With[
-    {edgeCount = Length[EdgeList[surf]],
-     angleCount = Length[Flatten[NeighborhoodList[surf]]]},
+    {opts = With[
+       {tmp = {optseq}},
+       Join[
+         tmp,
+         If[FilterRules[tmp, EdgesConstant] == {}, {EdgesConstant -> Automatic}, {}],
+         If[FilterRules[tmp, AnglesConstant] == {}, {AnglesConstant -> Automatic}, {}]]]},
     With[
-      {edgeConst = Replace[
-         N[OptionValue[EdgesConstant] /. Automatic -> (1.0/edgeCount)],
-         {Except[_?NumericQ] :> (
-            Message[CorticalPotentialFunction::badarg, EdgesConstant, "must be a number"];
-            Throw[$Failed]),
-          x_ /; x < 0 :> (
-            Message[CorticalPotentialFunction::badarg, EdgesConstant, "must be a >= 0"];
-            Throw[$Failed])}],
-       angleConst = Replace[
-         N[OptionValue[AnglesConstant] /. Automatic -> (1.0/angleCount)],
-         {Except[_?NumericQ] :> (
-            Message[CorticalPotentialFunction::badarg, AnglesConstant, "must be a number"];
-            Throw[$Failed]),
-          x_ /; x < 0 :> (
-            Message[CorticalPotentialFunction::badarg, AnglesConstant, "must be a >= 0"];
-            Throw[$Failed])}],
-       fe = Unique["energyFn"],
-       fg = Unique["gradientFn"]},
-      SetAttributes[Evaluate[fe], Temporary];
-      SetAttributes[Evaluate[fg], Temporary];
-      Which[
-        edgeConst == 0 && anglesConst == 0, (
-          fe[X_] := 0;
-          fg[X_] := ConstantArray[0, Dimensions[VertexList[surf]]]),
-        edgeConst == 0, (
-          fe[X_List] := angleConst*AnglesEnergy[surf, X];
-          fg[X_List] := angleConst*Flatten[AnglesGradient[surf, X]]),
-        angleConst == 0, (
-          fe[X_List] := edgeConst*EdgesEnergy[surf, X];
-          fg[X_List] := edgeConst*Flatten[EdgesGradient[surf, X]]),
-        True, (
-          fe[X_List] := Plus[
-            edgeConst*EdgesEnergy[surf, X],
-            angleConst*AnglesEnergy[surf, X]];
-          fg[X_List] := Flatten[
-            Plus[
-              edgeConst*EdgesGradient[surf, X],
-              angleConst*AnglesGradient[surf, X]]])];
-      {fe,fg}]]];
+      {parts = Check[
+         Select[
+           Map[
+             Function[
+               With[
+                 {term = CorticalPotentialTerm[surf, #]},
+                 If[term =!= None && !ListQ[term],
+                   Message[
+                     CorticalPotentialField::badterm, 
+                     "term " <> #[[1]] <> " did not yield a 2-element list"];
+                   Throw[$Failed]];
+                 term]], 
+             opts],
+           ListQ],
+         Throw[$Failed]],
+       f = Unique["potential"]},
+      SetAttributes[Evaluate[f], Temporary];
+      If[Length[parts] == 0,
+        Block[{X},
+          f[X_ /; ArrayQ[X, 2, NumericQ]] := 0;
+          f /: Gradient[f, X_ /; ArrayQ[X, 2, NumericQ]] := ConstantArray[
+            0,
+            Dimensions@VertexList[s]]],
+        Block[{X},
+          SetDelayed@@Replace[
+            Hold[
+              f[X_ /; ArrayQ[X, 2, NumericQ]],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X]]&,
+                    parts[[All, 1]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Plus[f],
+            {1}];
+          TagSetDelayed@@Replace[
+            Hold[
+              f,
+              Gradient[f, X_ /; ArrayQ[X, 2, NumericQ]],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X]]&,
+                    parts[[All, 2]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Flatten[Plus[f]],
+            {1}]]];
+      f]]];
+
+(* #CorticalPotentialTerm *************************************************************************)
+CorticalPotentialTerm[___] := Message[
+  CorticalPotentialTerm::badarg,
+  "Unrecognized term name: " <> ToString[name]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], EdgesConstant -> e_] := With[
+  {const = N[e /. Automatic -> (1.0 / Length[EdgeList[s]])]},
+  Which[
+    !NumericQ[const], (
+      Message[CorticalPotentialTerm::badarg, "EdgesConstant must be a number"];
+      $Failed),
+    const < 0, (
+      Message[CorticalPotentialTerm::badarg, "EdgesConstant must be >= 0"];
+      $Failed),
+    const == 0, None,
+    True, {(const * EdgesEnergy[s,#])&, (const * EdgesGradient[s,#]&)}]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesConstant -> e_] := With[
+  {const = N[e /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])]},
+  Which[
+    !NumericQ[const], (
+      Message[CorticalPotentialTerm::badarg, "AnglesConstant must be a number"];
+      $Failed),
+    const < 0, (
+      Message[CorticalPotentialTerm::badarg, "AnglesConstant must be >= 0"];
+      $Failed),
+    const == 0, None,
+    True, {(const * AnglesEnergy[s,#])&, (const * AnglesGradient[s,#]&)}]];
+(* Machinery for setting new cortical potential terms *)
+SetCorticalPotentialTerm[surf_, rule_, val_] := (
+  Unprotect[CorticalPotentialTerm];
+  CorticalPotentialTerm /: Set[CorticalPotentialTerm[s_, r_], v_] =.;
+  Set[CorticalPotentialTerm[surf, rule], val];
+  CorticalPotentialTerm /: Set[CorticalPotentialTerm[s_, r_], v_] := 
+    SetCorticalPotentialTerm[s, r, v];
+  Protect[CorticalPotentialTerm];
+  CorticalPotentialTerm[arg]);
+Attributes[SetCorticalPotentialTerm] = Attributes[Set];
+CorticalPotentialTerm /: Set[CorticalPotentialTerm[s_, a_],v_] := SetCorticalPotentialTerm[s, a, v];
+SetDelayedCorticalPotentialTerm[surf_, rule_, val_] := (
+  Unprotect[CorticalPotentialTerm];
+  CorticalPotentialTerm /: SetDelayed[CorticalPotentialTerm[s_, r_], v_] =.;
+  SetDelayed[CorticalPotentialTerm[surf, rule], val];
+  CorticalPotentialTerm /: SetDelayed[CorticalPotentialTerm[s_, r_], v_] := 
+    SetDelayedCorticalPotentialTerm[s, r, v];
+  Protect[CorticalPotentialTerm];
+  Null);
+Attributes[SetDelayedCorticalPotentialTerm] = Attributes[SetDelayed];
+CorticalPotentialTerm /: SetDelayed[CorticalPotentialTerm[s_, a_],v_] := 
+  SetDelayedCorticalPotentialTerm[s, a, v];
+UnsetCorticalPotentialTerm[surf_, rule_] := (
+  Unprotect[CorticalPotentialTerm];
+  CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_,a_]] =.;
+  CorticalPotentialTerm[surf, rule] =.;
+  CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_,a_]] := UnsetCorticalPotentialTerm[s,a];
+  Protect[CorticalPotentialTerm];
+  Null);
+Attributes[UnsetCorticalPotentialTerm] = Attributes[Unset];
+CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_, a_]] := UnsetCorticalPotentialTerm[s,a];
+
 
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
@@ -1276,17 +1351,17 @@ EdgeCount[s_] := Length[EdgeList[s]];
 
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         ConvertCoordinates, Surface, SurfaceFromVTK, AnglesConstant,
-        AnglesEnergy, AnglesGradient, CorticalPotentialFunction,
-        Domain, DomainIndices, Duplicate, EdgesConstant, EdgesEnergy,
-        EdgesGradient, EdgeList, FaceAngles, FaceList, Faces,
-        FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
-        VertexList, InverseProjectionDispatch,
-        InverseProjectionTransform, Latitude, Longitude, MapHull,
-        MapName, NeighborhoodAngles, NeighborhoodEdgeLengths,
-        NeighborhoodList, MapPlot, MapQ, MergeSurfaces, OrientMatrix,
-        OrientPoint, SphericalPolarAngle, Polygons,
-        ProjectionDispatch, ProjectionRotation, ProjectionShear,
-        ProjectionTransform, Radius, ReadVTK,
+        AnglesEnergy, AnglesGradient, CorticalPotentialField,
+        CorticalPotentialTerm, Domain, DomainIndices, Duplicate,
+        EdgesConstant, EdgesEnergy, EdgesGradient, EdgeList,
+        FaceAngles, FaceList, Faces, FacesIndex, Field, FieldQ,
+        FaceFilter, VertexFilter, VertexList,
+        InverseProjectionDispatch, InverseProjectionTransform,
+        Latitude, Longitude, MapHull, MapName, NeighborhoodAngles,
+        NeighborhoodEdgeLengths, NeighborhoodList, MapPlot, MapQ,
+        MergeSurfaces, OrientMatrix, OrientPoint, SphericalPolarAngle,
+        Polygons, ProjectionDispatch, ProjectionRotation,
+        ProjectionShear, ProjectionTransform, Radius, ReadVTK,
         SphericalCoordinateStyle, SphericalToCartesian,
         ProjectedSurface, SurfaeAnglesGradient, SurfacePlot,
         SurfaceProjection, SurfaceQ, SurfaceRotation, SurfaceResample,
@@ -1352,7 +1427,6 @@ SetCorticalColor[arg_, val_] := (
   CorticalColor[arg]);
 Attributes[SetCorticalColor] = Attributes[Set];
 CorticalColor /: Set[CorticalColor[a_], v_] := SetCorticalColor[a, v];
-
 SetDelayedCorticalColor[arg_, val_] := (
   Unprotect[CorticalColor];
   CorticalColor /: SetDelayed[CorticalColor[a_], v_] =.;
@@ -1362,6 +1436,15 @@ SetDelayedCorticalColor[arg_, val_] := (
   Null);
 Attributes[SetDelayedCorticalColor] = Attributes[SetDelayed];
 CorticalColor /: SetDelayed[CorticalColor[a_], v_] := SetDelayedCorticalColor[a, v];
+UnsetCorticalColor[arg_] := (
+  Unprotect[CorticalColor];
+  CorticalColor /: Unset[CorticalColor[a_]] =.;
+  Unset[CorticalColor[arg]];
+  CorticalColor /: Unset[CorticalColor[a_]] := UnsetCorticalColor[a];
+  Protect[CorticalColor];
+  Null);
+Attributes[UnsetCorticalColor] = Attributes[Unset];
+CorticalColor /: Unset[CorticalColor[a_]] := UnsetCorticalColor[a];
 
 Protect[CorticalColor, ColorCortex, Curvature];
 
