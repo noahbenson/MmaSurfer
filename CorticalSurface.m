@@ -118,7 +118,12 @@ EdgesEnergy::usage = "EdgesEnergy[s, X] yeilds the scalar energy for the given s
 EdgesGradient::usage = "EdgesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. The result is the gradient of the EdgesEnergy[s,X]. EdgesGradient[s] is equivalent to EdgesGradient[s,VertexList[s]], which is a list of zero-vectors.";
 AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total.";
 AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
-
+CorticalPotentialFunction::usage = "CorticalPotentialFunction[s] yields the pair {energyFn, gradientFn} for the reference surface or map s. A call of energyFn[X], for a list of vertex positions X, yields the total potential energy of the configuration X while a call of gradientFn[X] yields a flattened gradient matrix, suitable for use with Mathematica's minimization functions such as FindArgMin.
+The following options are accepted:
+  EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
+  AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).";
+EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialFunction that specifies the raltive strength of the edge forces.";
+AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialFunction that specifies the raltive strength of the angle forces.";
 
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
@@ -304,7 +309,7 @@ Options[Surface] = {
   Polygons -> None};
 Surface[data: {{_,_,_}..}, OptionsPattern[]] := Catch[
   With[
-    {sym = (SetAttributes[#, Temporary]; #)&@Unique["surf"],
+    {sym = (SetAttributes[Evaluate[#], Temporary]; #)&@Unique["surf"],
      field = Replace[
        OptionValue[Field],
        {l_List /; Length[l] == Length[data] :> l,
@@ -529,7 +534,7 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
           _ :> (
             Message[SurfaceProjection::badarg, Scale, "must be a real number > 0 or None"];
             Throw[$Failed])}],
-       sym = (SetAttributes[#, Temporary]; #)&@Unique["map"],
+       sym = (SetAttributes[Evaluate[#], Temporary]; #)&@Unique["map"],
        scFn = Function[CartesianToSpherical[#, SphericalCoordinateStyle->{Longitude, Latitude}]],
        iscFn = Function[SphericalToCartesian[#, SphericalCoordinateStyle->{Longitude, Latitude}]]},
       sym /: SurfaceRotation[sym] = RotationMatrix[{mu, {1,0,0}}];
@@ -886,7 +891,7 @@ EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
     {dx = MapThread[Subtract, {Transpose[x], x0}]},
     With[
       {norms = Sqrt[Total[dx^2]]},
-      Dot[dx, 2.0 * (norms - d0) / norms]]],
+      Dot[dx, 2.0 * (d0 - norms) / norms]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
@@ -1095,7 +1100,7 @@ AnglesGradientCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}, {t0s, _Real,
             With[
               {mnorms = Sqrt[Total[means^2]]},
               With[
-                {scalars = -2.0*(2.0*ArcCos[mnorms] - t0s)/(mnorms*Sqrt[1.0 - mnorms^2])},
+                {scalars = 2.0*(2.0*ArcCos[mnorms] - t0s)/(mnorms*Sqrt[1.0 - mnorms^2])},
                 Total[
                   Transpose[means*Table[scalars, {Length[x0]}]]]]]]]]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
@@ -1107,6 +1112,55 @@ AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
     Dimensions[VertexList[surf]]];
+
+(* #CorticalPotentialFunction *********************************************************************)
+Options[CorticalPotentialFunction] = {
+  AnglesConstant -> Automatic,
+  EdgesConstant -> Automatic};
+CorticalPotentialFunction[surf_ /; SurfaceQ[surf] || MapQ[surf], OptionsPattern[]] := Catch[
+  With[
+    {edgeCount = Length[EdgeList[surf]],
+     angleCount = Length[Flatten[NeighborhoodList[surf]]]},
+    With[
+      {edgeConst = Replace[
+         N[OptionValue[EdgesConstant] /. Automatic -> (1.0/edgeCount)],
+         {Except[_?NumericQ] :> (
+            Message[CorticalPotentialFunction::badarg, EdgesConstant, "must be a number"];
+            Throw[$Failed]),
+          x_ /; x < 0 :> (
+            Message[CorticalPotentialFunction::badarg, EdgesConstant, "must be a >= 0"];
+            Throw[$Failed])}],
+       angleConst = Replace[
+         N[OptionValue[AnglesConstant] /. Automatic -> (1.0/angleCount)],
+         {Except[_?NumericQ] :> (
+            Message[CorticalPotentialFunction::badarg, AnglesConstant, "must be a number"];
+            Throw[$Failed]),
+          x_ /; x < 0 :> (
+            Message[CorticalPotentialFunction::badarg, AnglesConstant, "must be a >= 0"];
+            Throw[$Failed])}],
+       fe = Unique["energyFn"],
+       fg = Unique["gradientFn"]},
+      SetAttributes[Evaluate[fe], Temporary];
+      SetAttributes[Evaluate[fg], Temporary];
+      Which[
+        edgeConst == 0 && anglesConst == 0, (
+          fe[X_] := 0;
+          fg[X_] := ConstantArray[0, Dimensions[VertexList[surf]]]),
+        edgeConst == 0, (
+          fe[X_List] := angleConst*AnglesEnergy[surf, X];
+          fg[X_List] := angleConst*Flatten[AnglesGradient[surf, X]]),
+        angleConst == 0, (
+          fe[X_List] := edgeConst*EdgesEnergy[surf, X];
+          fg[X_List] := edgeConst*Flatten[EdgesGradient[surf, X]]),
+        True, (
+          fe[X_List] := Plus[
+            edgeConst*EdgesEnergy[surf, X],
+            angleConst*AnglesEnergy[surf, X]];
+          fg[X_List] := Flatten[
+            Plus[
+              edgeConst*EdgesGradient[surf, X],
+              angleConst*AnglesGradient[surf, X]]])];
+      {fe,fg}]]];
 
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
@@ -1221,8 +1275,9 @@ VertexCount[s_] := Length[VertexList[s]];
 EdgeCount[s_] := Length[EdgeList[s]];
 
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
-        ConvertCoordinates, Surface, SurfaceFromVTK, AnglesEnergy,
-        AnglesGradient, Domain, DomainIndices, Duplicate, EdgesEnergy,
+        ConvertCoordinates, Surface, SurfaceFromVTK, AnglesConstant,
+        AnglesEnergy, AnglesGradient, CorticalPotentialFunction,
+        Domain, DomainIndices, Duplicate, EdgesConstant, EdgesEnergy,
         EdgesGradient, EdgeList, FaceAngles, FaceList, Faces,
         FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
         VertexList, InverseProjectionDispatch,
