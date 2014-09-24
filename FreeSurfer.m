@@ -49,6 +49,7 @@ MGHQ::usage = "MGHQ[obj] yields true if and only if obj is an MGH object.";
 AnnotationQ::usage = "AnnotationQ[obj] yields true if and only if obj is an Annotation object.";
 
 ExportMGH::usage = "ExportMGH[filename, data, options...] is equivalent to Export[filename, data, \"MGH\", options].";
+ExportMGH::badfmt = "Bad format for argument to ExportMGH: `1`";
 ExportSurface::usage = "ExportSurface[filename, data, options...] is equivalent to Export[filename, data, \"FreeSurferSurface\", options].";
 ExportWeights::usage = "ExportWeights[filename, data, options...] is equivalent to Export[filename, data, \"FreeSurferWeights\", options].";
 ExportCurv::usage = "ExportCurv[filename, data, options...] is equivalent to Export[filename, data, \"FreeSurferCurv\", options].";
@@ -86,12 +87,14 @@ SubjectDirectory::usage = "SubjectDirectory[s] yields the directory from which t
 SubjectSegments::usage = "SubjectSegments[sub] yields an MGH object for subject sub whose values correspond to segments of the brain volume.";
 SubjectSegment::usage = "SubjectSegment[sub, label] yeids a list of indices at which the subject's anatomical volume is labeled with label, which may be an integer or a string, either of which must be found in the FreeSurferColorLUT.";
 SubjectSegment::badlbl = "Label given to SubjectSegment not found: `1`";
+SubjectRawavg::usage = "SubjectRawavg[sub] yields the volume for the subject sub's brain as represented in FreeSurfer's rawavg.mgz file, which contains the volume prior to conformation by mri_convert.";
 SubjectBrain::usage = "SubjectBrain[sub] yields the volume for the subject sub's normalized brain (after skull stripping).";
 SubjectWhiteMatter::usage = "SubjectWhiteMattter[sub] yields the volume for the subject sub's white matter.";
 SubjectFilledBrain::usage = "SubjectFilledBrain[sub] yields the volume for the subject sub's brain in which the right hemisphere white matter has values of Left and the left hemisphere has values of Right. Note that these can be exported and will translate to FreeSurfer's specified RH -> 127 and LH -> 255 values.";
 SubjectHemisphere::usage = "SubjectHemisphere[sub, LH|RH] yields the volume for the subject sub's right or left hemisphere only (with values of 1 for the white matter and 0 elsewhere).";
 SubjectRibbon::usage = "SubjectRibbon[sub, LH|RH] yields the volume for the subject sub's right or left hemisphere ribbon (ie, the non-white matter).";
 SubjectRibbon::notfound = "Subject's ribbon file (?h.ribbon.mgz or ?h.ribbon.mgh) not found.";
+MGH::usage = "MGH is an option that may be passed to any of the FreeSurfer volume functions to specify that the MGH object should be returned instead of the volume itself.";
 
 (* Surface Functions *)
 SubjectOriginalSurface::usage = "SubjectOriginalSurface[sub, hemi] yields the original cortical surface tesselation for subject sub's specified hemishere.";
@@ -276,7 +279,8 @@ ImportMGHFrames[stream_InputStream, opts___] := "Frames" -> Catch[
                 "import stream",
                 StringJoin[
                   "size of volume (", ToString[volsz], 
-                  ") seems unreasonable; run with option \"SanityChecks\" -> False to ignore this error"]];
+                  ") seems unreasonable; run with option \"SanityChecks\" -> False",
+                  " to ignore this error"]];
               Throw[$Failed]];
             If[nframes < 1 || nframes > 10^5,
               Message[
@@ -284,7 +288,8 @@ ImportMGHFrames[stream_InputStream, opts___] := "Frames" -> Catch[
                 "import stream",
                 StringJoin[
                   "number of frames (", ToString[nframes], 
-                  ") seems unreasonable; run with option \"SanityChecks\" -> False to ignore this error"]];
+                  ") seems unreasonable; run with option \"SanityChecks\" -> False",
+                  " to ignore this error"]];
               Throw[$Failed]]];
             SetStreamPosition[stream, $MGHHeaderSize];
             Table[
@@ -322,7 +327,8 @@ ImportMGHFooter[stream_InputStream, opts___] := "OptionalData" -> Catch[
                 "import stream",
                 StringJoin[
                   "size of volume (", ToString[volsz], 
-                  ") seems unreasonable; run with option \"SanityChecks\" -> False to ignore this error"]];
+                  ") seems unreasonable; run with option \"SanityChecks\" -> False",
+                  " to ignore this error"]];
               Throw[$Failed]];
             If[nframes < 1 || nframes > 10^5,
               Message[
@@ -331,9 +337,12 @@ ImportMGHFooter[stream_InputStream, opts___] := "OptionalData" -> Catch[
                 StringJoin[
                   "number of frames (",
                   ToString[nframes],
-                  ") seems unreasonable; run with option \"SanityChecks\" -> False to ignore this error"]];
+                  ") seems unreasonable; run with option \"SanityChecks\" -> False",
+                  " to ignore this error"]];
               Throw[$Failed]]];
-            SetStreamPosition[stream, $MGHHeaderSize + (volsz * nframes * (type /. $BytesPerType)) - 1];
+            SetStreamPosition[
+              stream,
+              $MGHHeaderSize + (volsz * nframes * (type /. $BytesPerType)) - 1];
             If[BinaryRead[stream, "Integer8"] === EndOfFile, Throw[None]];
             With[
               {data = Fold[
@@ -369,6 +378,7 @@ ImportMGHData[stream_InputStream, opts___] := "Data" -> With[
       l_List /; Position[l, $Failed] != {} -> $Failed]]];
 MGHObjectFromData[data_] := With[
   {sym = Unique["mgh"]},
+  SetAttributes[Evaluate[sym], Temporary];
   sym /: MGHQ[sym] = True;
   sym /: ImportedData[sym] = data;
   sym /: Header[sym] = Replace[
@@ -746,6 +756,7 @@ ImportWeightsObject[stream_, opts___] := With[
     $Failed,
     With[
       {sym = Unique["weights"]},
+      SetAttributes[Evaluate[sym], Temporary];
       sym /: Field[sym] = ("Field" /. data);
       sym /: Header[sym] = ("Header" /. data);
       sym]]];;
@@ -849,6 +860,7 @@ ImportCurvObject[stream_, opts___] := Catch[
        "Data" /. ImportCurvData[stream, opts],
        $Failed :> Throw[$Failed]],
      sym = Unique["curv"]},
+    SetAttributes[Evaluate[sym], Temporary];
     sym /: Field[sym] = "Field" /. data;
     sym /: Header[sym] = "Header" /. data;
     sym]];
@@ -1005,6 +1017,7 @@ ImportAnnotationData[stream_, opts___] := Block[
 ImportAnnotationObject[stream_, opts___] := With[
   {data = ImportAnnotationData[stream, opts],
    sym = Unique["annot"]},
+  SetAttributes[Evaluate[sym], Temporary];
   If[data === $Failed,
     $Failed,
     (sym /: AnnotationQ[sym] = True;
@@ -1097,6 +1110,7 @@ ImportLabel[filename_, options___] := Check[
      sym = Unique["label"],
      opts = {options},
      inval = True /. Append[{options}, True -> 1]},
+    SetAttributes[Evaluate[sym], Temporary];
     sym /: ImportedData[sym] = dat;
     sym /: Field[sym] = SparseArray[
       Map[(#[[1]] -> inval)&, dat],
@@ -1268,7 +1282,8 @@ $FreeSurferColorLUT := With[
     (Message[FreeSurfer::nolabel]; $Failed)]];
 
 (* FreeSurfer's Volume data ***********************************************************************)
-SubjectSegments[sub_String] := With[
+Options[SubjectSegments] = {MGH -> False};
+SubjectSegments[sub_String, opt:OptionsPattern[]] := With[
   {dat = Check[
     If[FileExistsQ[sub <> "/mri/aseg.mgh"],
       Import[sub <> "/mri/aseg.mgh",  "MGH"],
@@ -1276,7 +1291,11 @@ SubjectSegments[sub_String] := With[
     $Failed]},
    If[dat === $Failed, 
      $Failed, 
-     Set[SubjectSegments[sub], First@Volumes[dat]]]];
+     Set[
+       SubjectSegments[sub, opt],
+       If[TrueQ[OptionValue[MGH]],
+         dat,
+         First@Volumes[dat]]]]];
 SubjectSegment[sub_String, label:(_String | _Integer)] := Check[
   With[
     {aseg = SubjectSegments[sub],
@@ -1286,16 +1305,36 @@ SubjectSegment[sub_String, label:(_String | _Integer)] := Check[
       IntegerQ[label], Position[aseg, label, {3}],
       True, Position[aseg, lbl[[1]], {3}]]],
   $Failed];
-SubjectWhiteMatter[sub_String] := With[
+Options[SubjectWhiteMatter] = {MGH -> False};
+SubjectWhiteMatter[sub_String, opt:OptionsPattern[]] := With[
   {dat = Check[
      If[FileExistsQ[sub <> "/mri/wm.mgh"],
       Import[sub <> "/mri/wm.mgh",  "MGH"],
       Import[sub <> "/mri/wm.mgz", {"GZIP", "MGH"}]],
     $Failed]},
+   If[dat === $Failed,
+     $Failed, 
+     Set[
+       SubjectWhiteMatter[sub, opt],
+       If[TrueQ[OptionValue[MGH]],
+         dat,
+         First@Volumes[dat]]]]];
+Options[SubjectRawavg] = {MGH -> False};
+SubjectRawavg[sub_String, opts:OptionsPattern[]] := With[
+  {dat = Check[
+     If[FileExistsQ[sub <> "/mri/brain.mgh"],
+      Import[sub <> "/mri/rawavg.mgh",  "MGH"],
+      Import[sub <> "/mri/rawavg.mgz", {"GZIP", "MGH"}]],
+    $Failed]},
    If[dat === $Failed, 
      $Failed, 
-     Set[SubjectWhiteMatter[sub], First@Volumes[dat]]]];
-SubjectBrain[sub_String] := With[
+     Set[
+       SubjectRawavg[sub, opts], 
+       If[TrueQ[OptionValue[MGH]],
+         dat,
+         First@Volumes[dat]]]]];
+Options[SubjectBrain] = {MGH -> False};
+SubjectBrain[sub_String, opts:OptionsPattern[]] := With[
   {dat = Check[
      If[FileExistsQ[sub <> "/mri/brain.mgh"],
       Import[sub <> "/mri/brain.mgh",  "MGH"],
@@ -1303,8 +1342,13 @@ SubjectBrain[sub_String] := With[
     $Failed]},
    If[dat === $Failed, 
      $Failed, 
-     Set[SubjectBrain[sub], First@Volumes[dat]]]];
-SubjectFilledBrain[sub_String] := With[
+     Set[
+       SubjectBrain[sub, opts],
+       If[TrueQ[OptionValue[MGH]],
+         dat,
+         First@Volumes[dat]]]]];
+Options[SubjectFilledBrain] = {MGH -> False};
+SubjectFilledBrain[sub_String, opt:OptionsPattern[]] := With[
   {dat = Check[
      If[FileExistsQ[sub <> "/mri/brain.mgh"],
       Import[sub <> "/mri/filled.mgh",  "MGH"],
@@ -1313,15 +1357,18 @@ SubjectFilledBrain[sub_String] := With[
    If[dat === $Failed, 
      $Failed, 
      Set[
-       SubjectFilledBrain[sub],
-       Replace[First@Volumes[dat], {127 -> RH, 255 -> LH}, {3}]]]];
+       SubjectFilledBrain[sub, opt],
+       If[TrueQ[OptionValue[MGH]],
+         dat,
+         Replace[First@Volumes[dat], {127 -> RH, 255 -> LH}, {3}]]]]];
 SubjectHemisphere[sub_String, hem:LH|RH] := Check[
   With[
     {dat = SubjectFilledBrain[sub]},
     If[dat =!= $Failed,
       Set[SubjectHemisphere[sub, hem], VolumeMask[VolumeIndices[dat, hem], Dimensions[dat]]]]],
   $Failed];
-SubjectRibbon[sub_String, hem:LH|RH] := With[
+Options[SubjectRibbon] = {MGH -> False};
+SubjectRibbon[sub_String, hem:LH|RH, opt:OptionsPattern[]] := With[
   {mgh = Check[
      Which[
        FileExistsQ[sub <> "/mri/" <> ToLowerCase[ToString[hem]] <> ".ribbon.mgz"], Import[
@@ -1334,7 +1381,11 @@ SubjectRibbon[sub_String, hem:LH|RH] := With[
      $Failed]},
   If[mgh === $Failed, 
     $Failed,
-    Set[SubjectRibbon[sub, hem], First[Volumes[mgh]]]]];
+    Set[
+       SubjectRibbon[sub, hem, opt], 
+       If[TrueQ[OptionValue[MGH]],
+         mgh,
+         First[Volumes[mgh]]]]]];
 
 
 (* Subject Surface Data ***************************************************************************)

@@ -13,11 +13,17 @@ This repository contains four Mathematica package files:
  * **FreeSurfer.m** - The core interop library between FreeSurfer and 
    Mathematica. Defines several functions that allow for easy access to subject
    data.
- * **OccipitalPole.m** - A small set of functions for examining fMRI data 
+ * **VisualCortex.m** - A small set of functions for examining fMRI data 
    specifically relating to the occipital pole.
 
 There is additionally a notebook file, **tutorial.nb**, which contains 
 instructions and walkthroughs for installing and using the library.
+
+## Notes #######################################################################
+
+This library is currently undergoing many rapid changes; the tutorial notebook
+is largely out of date, though many of the principles are correct. Expect the
+contents to change over the next couple of months.
 
 ## License #####################################################################
 
