@@ -162,8 +162,8 @@ CorticalVolume[data_ /; ArrayQ[data, 3|4], OptionsPattern[]] := Catch[
       {r = dims * 0.5 * spacing},
       Transpose[{-r,r}]];
     sym /: VoxelToCoordinateMatrix[sym] = With[
-      {mtx = MapThread[Most[#1]*#2&, {matrix, spacing}]},
-      MapThread[Append, {mtx, matrix[[All, -1]] - Dot[mtx, 0.5*dims]}]];
+      {mtx = MapThread[Most[#1]*#2 &, {matrix, spacing}]},
+      MapThread[Append, {mtx, -Dot[mtx, 0.5*dims]}]];
     sym /: CoordinateToVoxelMatrix[sym] = Most[
       Inverse[Append[VoxelToCoordinateMatrix[sym], {0,0,0,1}]]];
     sym]];
