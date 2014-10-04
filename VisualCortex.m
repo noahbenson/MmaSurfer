@@ -1292,9 +1292,30 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
              Parallelization -> True],
            attrs = Check[
              MapThread[fn[#1, #2][[1 ;; 4]] &, {angles, eccen}],
-             Throw[$Failed]]},
-          {Function[const*Total[weights*MapThread[energy, {#, attrs}]]],
-           Function[const*MapThread[#1*grad[#2, #3] &, {weights, #, attrs}]]}]]]]];
+             Throw[$Failed]],
+           attrsIdxMap = SparseArray[
+             MapThread[Rule, {u, Range[Length@u]}],
+             Length[VertexList[s]],
+             0],
+           replaceArray = ConstantArray[0.0, Dimensions[VertexList[s]]],
+           zerov = ConstantArray[0.0, Length[First[VertexList[s]]]]},
+          {Function[
+             If[Length[{##}] == 1, 
+               const*Total[weights*MapThread[energy, {#[[u]], attrs}]
+               With[
+                 {idcs = Transpose[Select[MapThread[List, {#2, attrsIdxMap[[#2]]}], #[[2]]>0&]]},
+                 const*Total[weights*MapThread[energy, {#1[[idcs[[1]]]], attrs[[idcs[[2]]]]}]]]]]],
+           Function[
+             If[Length[{##}] == 1,
+               ReplacePart[
+                 replaceArray,
+                 MapThread[(#1 -> const*#2*grad[#3, #4])&, {u, weights, #[[u]], attrs}]],
+               With[
+                 {idcs = Transpose[MapThread[List, {#2, attrsIdxMap[[#2]]}]],
+                  x = #1},
+                 MapThread[
+                   If[#1 == 0, zerov, const*weights[[#2]]*grad[x[[#2]], attrs[[#2]]]] &,
+                   idcs]]]]}]]]]];
 
 Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas,
         SchiraLinePlot, EccentricityStyleFunction, PolarAngleStyleFunction,
