@@ -1037,6 +1037,9 @@ Protect[NeighborhoodAngleCompiled];
 NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   NeighborhoodAngleCompiled,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  NeighborhoodAngleCompiled,
+  {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodAngles[SurfaceName[surf]],
@@ -1080,6 +1083,9 @@ NeighborhoodEdgeLengthsCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   NeighborhoodEdgeLengthsCompiled,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  NeighborhoodEdgeLengthsCompiled,
+  {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodEdgeLengths[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodEdgeLengths[SurfaceName[surf]],
@@ -1113,11 +1119,14 @@ Protect[AnglesGradientCompiled];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   AnglesGradientCompiled,
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  AnglesGradientCompiled,
+  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
     Dimensions[VertexList[surf]]];
 
-(* #CorticalPotentialField *********************************************************************)
+(* #CorticalPotentialField ************************************************************************)
 CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := Catch[
   With[
     {opts = With[
@@ -1163,6 +1172,18 @@ CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := 
                   {1}]]],
             Hold[f__] :> Plus[f],
             {1}];
+          SetDelayed@@Replace[
+            Hold[
+              f[X_ /; ArrayQ[X, 2, NumericQ], idcs_List],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X, idcs]]&,
+                    parts[[All, 1]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Plus[f],
+            {1}];
           TagSetDelayed@@Replace[
             Hold[
               f,
@@ -1171,6 +1192,19 @@ CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := 
                 Replace[
                   Hold@@Map[
                     Hold[#[X]]&,
+                    parts[[All, 2]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Flatten[Plus[f]],
+            {1}];
+          TagSetDelayed@@Replace[
+            Hold[
+              f,
+              Gradient[f, X_ /; ArrayQ[X, 2, NumericQ], idcs_List],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X, idcs]]&,
                     parts[[All, 2]]],
                   Hold[f_] :> f,
                   {1}]]],
@@ -1331,10 +1365,11 @@ Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[Surface[m]]] := (
 Rule[a_List, b_?SurfaceQ] /; Length[a] != Length[VertexList[b]] := (
   Message[WithField::incompat];
   $Failed);
-Rule[a_List, b_?MapQ] := (
-  Message[WithField::incompat];
-  $Failed
- ) /; (Length[a] != Length[VertexList[b]] && Length[a] != Length[VertexList[Surface[b]]]);
+Rule[a_List, b_?MapQ]
+  /; (Length[a] != Length[VertexList[b]] && Length[a] != Length[VertexList[ProjectedSurface[b]]])
+  := (
+    Message[WithField::incompat];
+    $Failed);
 
 Protect[Rule];
 
