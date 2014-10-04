@@ -1334,7 +1334,9 @@ ProjectionTransform[Rule[f_List, m_?MapQ]] := ProjectionTransform[m];
 DomainIndices[Rule[f_List, m_?MapQ]] := DomainIndices[m];
 Domain[Rule[f_List, m_?MapQ]] := Domain[m];
 Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[m]] := f;
-Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[Surface[m]]] :=f[[DomainIndices[m]]];
+Field[Rule[f_List, m_?MapQ]] 
+  /; Length[f] == Length[VertexList[ProjectedSurface[m]]] 
+  := f[[DomainIndices[m]]];
 FaceList[Rule[f_List, m_?MapQ]] := FaceList[m];
 MapQ[Rule[f_List, m_?MapQ]] := True;
 MapName[Rule[f_List, m_?MapQ]] := MapName[m];
@@ -1352,14 +1354,16 @@ Rule /: Normal[Rule[a_List, s_?SurfaceQ]] := MapThread[Rule, {VertexList[s], a}]
 Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[DomainIndices[m]] := MapThread[
   Rule,
   {VertexList[m], a}];
-Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[VertexList[Surface[m]]] := MapThread[
-  Rule,
-  {VertexList[m], a[[DomainIndices[m]]]}];
+Rule /: Normal[Rule[a_List, m_?MapQ]] 
+  /; Length[a] == Length[VertexList[ProjectedSurface[m]]] 
+  := MapThread[
+    Rule,
+    {VertexList[m], a[[DomainIndices[m]]]}];
 
 Rule[f_?FieldQ, s_?SurfaceQ] /; Length[Field[f]] != Length[Field[s]] := (
   Message[WithField::incompat];
   $Failed);
-Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[Surface[m]]] := (
+Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[ProjectedSurface[m]]] := (
   Message[WithField::incompat];
   $Failed);
 Rule[a_List, b_?SurfaceQ] /; Length[a] != Length[VertexList[b]] := (
