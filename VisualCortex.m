@@ -78,6 +78,7 @@ FSAverageSymV1Hull::usage = "$FSAverageSymV1Hull is the list of polygons in the 
 $DefaultSchiraA::usage = "The default value of the Schira model A parameter.";
 $DefaultSchira\[CapitalLambda]::usage = "The default value of the Schira model lambda parameter.";
 $DefaultSchira\[CapitalPsi]::usage = "The default rotation of the Schira model in radians.";
+$DefaultSchira\[CapitalRho]90::usage = "The default degree position for 90 degrees in the Schira model.";
 $DefaultSchiraV1Size::usage = "The default size of V1 in the Schira model.";
 $DefaultSchiraV2Size::usage = "The default size of V2 in the Schira model.";
 $DefaultSchiraV3Size::usage = "The default size of V3 in the Schira model.";
@@ -92,6 +93,7 @@ A::usage="The A parameter of the Schira model.";
 B::usage="The B parameter of the Schira model.";
 \[CapitalPsi]::usage="The rotation parameter of the Schira model.";
 \[CapitalLambda]::usage="The rotation parameter of the Schira model.";
+\[CapitalRho]90::usage = "The degree position of 90 degrees in the Schira model.";
 V1Size::usage="The parameter of the Schira model that determines the size of V1.";
 V2Size::usage="The parameter of the Schira model that determines the size of V2.";
 V3Size::usage="The parameter of the Schira model that determines the size of V3.";
@@ -463,6 +465,7 @@ $DefaultSchiraV3ASize = 0.3;
 $DefaultSchiraFC = {-0.14, -0.1};
 $DefaultSchiraScale = {0.35, 0.35};
 $DefaultSchiraShear = {{1, 0}, {0, 1}};
+$DefaultSchira\[CapitalRho]90 = 90;
 $SchiraParameters = List[
    A :> $DefaultSchiraA,
    B :> $DefaultSchiraB,
@@ -475,21 +478,25 @@ $SchiraParameters = List[
    V3ASize :> $DefaultSchiraV3ASize,
    FC :> $DefaultSchiraFC,
    Scale :> $DefaultSchiraScale,
-   Shear :> $DefaultSchiraShear];
-Protect[
-    $DefaultSchiraA, $DefaultSchiraB, $DefaultSchira\[CapitalLambda], $DefaultSchira\[CapitalPsi],
-    $DefaultSchiraV1Size, $DefaultSchiraV2Size, $DefaultSchiraV3Size,
-    $DefaultSchiraHV4Size, $DefaultSchiraV3ASize,
-    $DefaultSchiraFC, $DefaultSchiraScale, $DefaultSchiraShear,
-    $SchiraParameters];
+   Shear :> $DefaultSchiraShear,
+   \[CapitalRho]90 :> $DefaultSchira\[CapitalRho]90];
+
+Protect[ 
+  $DefaultSchiraA, $DefaultSchiraB,
+  $DefaultSchira\[CapitalLambda], $DefaultSchira\[CapitalPsi],
+  $DefaultSchira\[CapitalRho]90, $DefaultSchiraV1Size,
+  $DefaultSchiraV2Size, $DefaultSchiraV3Size, $DefaultSchiraHV4Size,
+  $DefaultSchiraV3ASize, $DefaultSchiraFC, $DefaultSchiraScale,
+  $DefaultSchiraShear, $SchiraParameters];
 
 (* Schira Parameters Keys *************************************************************************)
 A = A; B = B; \[CapitalLambda] = \[CapitalLambda];
 V1Size = V1Size; V2Size = V2Size; V3Size = V3Size; HV4Size = HV4Size; V3ASize = V3ASize; 
 \[CapitalPsi] = \[CapitalPsi]; FC = FC; Shear = Shear;
+\[CapitalRho]90 = \[CapitalRho]90;
 Protect[A, B, \[CapitalLambda], 
        V1Size, V2Size, V3Size, V3ASize, HV4Size,
-       \[CapitalPsi], FC, Shear];
+       \[CapitalPsi], \[CapitalRho]90, FC, Shear];
 
 (* The Schira Model Objects ***********************************************************************)
 
@@ -794,25 +801,29 @@ SchiraInverse[SchiraModelObject[disp_]] := Replace[Inverse, disp];
 
 CorticalMapToRetinotopy[SchiraModelObject[disp_], map_?MapQ] := With[
   {inv = Replace[Inverse, disp],
-   Z = Transpose[VertexList[map]]},
+   Z = Transpose[VertexList[map]],
+   r90 = Replace[\[CapitalRho]90, disp]},
   Map[
     Append[ComplexToVisualAngle[#[[1]]], #[[2]]]&,
-    inv[Z[[1]] + I * Z[[2]]]]];
+    inv[(Z[[1]] + I * Z[[2]])] * (90.0 / r90)]];
 CorticalMapToRetinotopy[SchiraModelObject[disp_], {x:Except[_List], y:Except[_List]}] := With[
-  {inv = Replace[Inverse, disp]},
+  {inv = Replace[Inverse, disp],
+   r90 = Replace[\[CapitalRho]90, disp]},
   With[
-   {z = inv[x + I*y]},
+   {z = inv[x + I*y] * (90.0 / r90)},
    Append[ComplexToVisualAngle[z[[1]]], z[[2]]]]];
 CorticalMapToRetinotopy[SchiraModelObject[disp_], coords:{{_,_}..}] := With[
   {inv = Replace[Inverse, disp],
-   Z = Transpose[coords]},
+   Z = Transpose[coords],
+   r90 = Replace[\[CapitalRho]90, disp]},
   Map[
     Append[ComplexToVisualAngle[#[[1]]], #[[2]]]&,
-    inv[Z[[1]] + I * Z[[2]]]]];
+    inv[Z[[1]] + I * Z[[2]]] * (90.0 / r90)]];
 CorticalMapToRetinotopy[SchiraModelObject[disp_], X_, Y_] := With[
-  {inv = Replace[Inverse, disp]},
+  {inv = Replace[Inverse, disp],
+   r90 = Replace[\[CapitalRho]90, disp]},
   With[
-    {res = inv[X + I*Y]},
+    {res = inv[X + I*Y] * (90.0 / r90)},
     If[ListQ[First@res],
       Append[ComplexToVisualAngle[#[[1]]], #[[2]]]& /@ res,
       Append[ComplexToVisualAngle[res[[1]], res[[2]]]]]]];
@@ -820,17 +831,20 @@ CorticalMapToRetinotopy[mdl_SchiraModelObject] := Function[CorticalMapToRetinoto
 
 RetinotopyToCorticalMap[SchiraModelObject[disp_], retinotopy:{{_,_}..}] := With[
   {fun = Replace[Function, disp],
-   tr = Transpose[retinotopy]},
-  ComplexToCoordinate[fun[VisualAngleToComplex[tr[[1]], tr[[2]]]]]];
+   tr = Transpose[retinotopy],
+   r90 = Replace[\[CapitalRho]90, disp]},
+  ComplexToCoordinate[fun[r90 / 90.0 * VisualAngleToComplex[tr[[1]], tr[[2]]]]]];
 RetinotopyToCorticalMap[
   SchiraModelObject[disp_],
   {polarAngle:Except[_List], eccentricity:Except[_List]}
  ] := With[
-  {fun = Replace[Function, disp]},
-  ComplexToCoordinate[fun[VisualAngleToComplex[polarAngle, eccentricity]]]];
+  {fun = Replace[Function, disp],
+   r90 = Replace[\[CapitalRho]90, disp]},
+  ComplexToCoordinate[fun[r90 / 90.0 * VisualAngleToComplex[polarAngle, eccentricity]]]];
 RetinotopyToCorticalMap[SchiraModelObject[disp_], polarAngles_, eccentricities_] := With[
-  {fun = Replace[Function, disp]},
-  ComplexToCoordinate[fun[VisualAngleToComplex[polarAngles, eccentricities]]]];
+  {fun = Replace[Function, disp],
+   r90 = Replace[\[CapitalRho]90, disp]},
+  ComplexToCoordinate[fun[r90 / 90.0 * VisualAngleToComplex[polarAngles, eccentricities]]]];
 RetinotopyToCorticalMap[mdl_SchiraModelObject] := Function[RetinotopyToCorticalMap[mdl, ##]];
 
 Protect[SchiraModel, SchiraModelObject, SchiraFunction, SchiraInverse,
@@ -1282,7 +1296,7 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
              Parallelization -> True],
            grad = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
              With[
-               {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+               {dx = MapThread[Subtract, {x, Transpose[ideals]}]},
                With[
                  {norms = Sqrt[Total[dx^2]]},
                  With[
@@ -1293,29 +1307,36 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
            attrs = Check[
              MapThread[fn[#1, #2][[1 ;; 4]] &, {angles, eccen}],
              Throw[$Failed]],
-           attrsIdxMap = SparseArray[
-             MapThread[Rule, {u, Range[Length@u]}],
-             Length[VertexList[s]],
-             0],
+           attrsIdxMap = SparseArray[u -> Range[Length[u]], Length[VertexList[s]], 0],
            replaceArray = ConstantArray[0.0, Dimensions[VertexList[s]]],
            zerov = ConstantArray[0.0, Length[First[VertexList[s]]]]},
           {Function[
-             If[Length[{##}] == 1, 
-               const*Total[weights*MapThread[energy, {#[[u]], attrs}]
-               With[
-                 {idcs = Transpose[Select[MapThread[List, {#2, attrsIdxMap[[#2]]}], #[[2]]>0&]]},
-                 const*Total[weights*MapThread[energy, {#1[[idcs[[1]]]], attrs[[idcs[[2]]]]}]]]]]],
+             With[
+               {params = {##}},
+               If[Length[params] == 1, 
+                 const*Total@Total[weights*MapThread[energy, {params[[1, u]], attrs}]],
+                 With[
+                   {idcs = Transpose[
+                     Select[
+                       Transpose[{params[[2]], attrsIdxMap[[params[[2]]]]}], 
+                       #[[2]]>0&]]},
+                   const*Total@Flatten[
+                     weights[[idcs[[2]]]]*MapThread[
+                       energy,
+                       {params[[1, idcs[[1]]]], attrs[[idcs[[2]]]]}]]]]]],
            Function[
-             If[Length[{##}] == 1,
-               ReplacePart[
-                 replaceArray,
-                 MapThread[(#1 -> const*#2*grad[#3, #4])&, {u, weights, #[[u]], attrs}]],
-               With[
-                 {idcs = Transpose[MapThread[List, {#2, attrsIdxMap[[#2]]}]],
-                  x = #1},
-                 MapThread[
-                   If[#1 == 0, zerov, const*weights[[#2]]*grad[x[[#2]], attrs[[#2]]]] &,
-                   idcs]]]]}]]]]];
+             With[
+               {params = {##}},
+               If[Length[params] == 1,
+                 ReplacePart[
+                   replaceArray,
+                   MapThread[(#1 -> const*#2*grad[#3, #4])&, {u, weights, params[[1, u]], attrs}]],
+                 With[
+                   {x = params[[1]],
+                    idcs = params[[2]]},
+                   MapThread[
+                     If[#2 == 0, zerov, const*weights[[#2]]*grad[x[[#1]], attrs[[#2]]]] &,
+                     {idcs, Normal[attrsIdxMap[[idcs]]]}]]]]]}]]]]];
 
 Protect[PolarAngleLegend, EccentricityLegend, SchiraParametricPlot, VisualAreas,
         SchiraLinePlot, EccentricityStyleFunction, PolarAngleStyleFunction,
