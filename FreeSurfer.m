@@ -72,7 +72,7 @@ Protect[RH, LH, RHX];
 
 AddFreeSurferHome::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home structures.";
 RemoveFreeSurferHome::usage = "RemoveFreeSurferHome[dir] removes the directories matching the pattern dir from the FreeSurfer subject directories structures.";
-AddSubjectsDir::usage = "AddFreeSurferHome[dir] adds the directory dir to the FreeSurfer home structures.";
+AddSubjectsDir::usage = "AddSubjectsDir[dir] adds the directory dir to the FreeSurfer home structures.";
 RemoveSubjectsDir::usage = "RemoveFreeSurferHome[dir] removes the directories matching the pattern dir from the FreeSurfer subject directories structures.";
 AddSubject::usage = "AddSubject[dir] adds the directory dir to the FreeSurfer subject structures.";
 RemoveSubject::usage = "RemoveSurbject[dir] removes the directories matching the pattern dir from the FreeSurfer subject structures.";

@@ -93,6 +93,8 @@ OrientMatrix::usage = "OrientMatrix[map] yields the orientation matrix applied t
 Duplicate::usage = "Duplicate is an option to SurfaceProjection which specifies that the projection should, unless otherwise specified in the options list, use the transformation arguments used by the given map.";
 
 MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[] may be given.";
+MapMeshPlot::usage = "MapMeshPlot[map] is identical to MapPlot except that it plots the map as a mesh instead of as a set of polygons.";
+MapMeshPlot::badarg = "Bad arguent given to MapMeshPlot: `1`";
 
 WithVertexFilter::usage = "WithVertexFilter[map, filt] and WithVertexFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
 WithFaceFilter::usage = "WithFaceFilter[map, filt] and WithFaceFilter[surf, filt] yield a map or surface object that is identical to map or surf except that it has an additional filter applied to it.";
@@ -118,14 +120,18 @@ EdgesEnergy::usage = "EdgesEnergy[s, X] yeilds the scalar energy for the given s
 EdgesGradient::usage = "EdgesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. The result is the gradient of the EdgesEnergy[s,X]. EdgesGradient[s] is equivalent to EdgesGradient[s,VertexList[s]], which is a list of zero-vectors.";
 AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total.";
 AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
+TrianglesEnergy::usage = "TrianglesEnergy[s, X] is an alternate verision of AnglesEnergy[s, X], which should be better at considering the energy of flipped triangles.";
+TrianglesGradient::usage = "TrianglesGradient[s, X] is an alternate verision of AnglesGradient[s, X], which should be better at considering the energy of flipped triangles.";
 CorticalPotentialField::usage = "CorticalPotentialField[s, options...] yields a symbol f which, when evaluated as f[X] for a numeric list X with dieensios equial to those of VertexList[s], yields the potential energy of the vertex configuration X according to the options given. Similarly, Gradient[f, X] yields the flattened gradient vector for the conformation X and is appropriate for passing to optimization functions that require a gradient such as FindArgMin.
 The following options are accepted:
   EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
   AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
+  TrianglesConstant must be a number >= 0 and specifies the relative strength of the triangles force in the potential function; any occurante of Automatic is replaced by 1/n where n is the number of angles in s (default: 0).
   Other options may be specified if they are defined via the CorticalPotentialTerm interface.";
 CorticalPotentialField::badterm = "Bad term given to CorticalPotentialField: `1`";
 EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialField that specifies the raltive strength of the edge forces.";
 AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
+TrianglesConstant::usage = "TrianglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the triangle forces.";
 CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
 CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
 
@@ -690,6 +696,39 @@ MapPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
     {opts},
     Except[ColorFunction|ColorFunctionScaling]]];
 
+(* #MapMeshPlot ***********************************************************************************)
+Options[MapMeshPlot] = Join[
+  Options[Graphics],
+  {ColorFunction -> Automatic,
+   ColorFunctionScaling -> False}];
+MapMeshPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
+  With[
+    {V = Normal[VertexList[map]],
+     F = Normal[EdgeList[map]],
+     Z = Normal[Field[map]],
+     cfn = Replace[
+       OptionValue[ColorFunction],
+       Automatic -> Function[Blend[{Blue,Cyan,Gray,Yellow,Red},#]]],
+     cfnsc = Replace[
+       OptionValue[ColorFunctionScaling],
+       {None|False -> Identity,
+        Ordering -> Function[
+          With[
+            {ord = Ordering[#]},
+            (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[#] - 1)]],
+        True|Automatic -> StructuredRescale}]},
+    With[
+      {ZZ = cfnsc[Z]},
+      {If[ListQ[F],
+         Map[
+           Function[Line[V[[#]], VertexColors -> cfn /@ Z[[#]]]],
+           F],
+         (Message[MapMeshPlot::badarg, "map must have edge data"];
+          {})]}]],
+  Sequence@@FilterRules[
+    {opts},
+    Except[ColorFunction|ColorFunctionScaling]]];
+
 (* #MapQ ******************************************************************************************)
 MapQ[x_] = False;
 
@@ -886,10 +925,45 @@ EdgeLengths[surf_] := Which[
 
 (* #EdgesEnergy ***********************************************************************************)
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
-  (EdgeLengths[surf] - EdgeLengths[surf, X])^2];
+  Log[EdgeLengths[surf] / EdgeLengths[surf, X]]^2];
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
+  Subtract[
+    Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
+    Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
+(*
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
+  (EdgeLengths[surf] - EdgeLengths[surf, X])^2];
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
+  Subtract[
+    Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
+    Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]^2];
+EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+*)
+
 (* #EdgesGradient *********************************************************************************)
+EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
+  With[
+    {dx = MapThread[Subtract, {Transpose[x], x0}]},
+    With[
+      {norms = Sqrt[Total[dx^2]]},
+      Dot[dx, -2.0 * Log[norms / d0] / norms^2]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
+  EdgesGradientCompiled,
+  {X, X[[#]]& /@ NeighborhoodList[surf], NeighborhoodEdgeLengths[surf]}];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  EdgesGradientCompiled,
+  {X[[idcs]],
+   X[[#]]& /@ Part[NeighborhoodList[surf], idcs],
+   Part[NeighborhoodEdgeLengths[surf], idcs]}];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+  0,
+  Dimensions[VertexList[surf]]];
+
+(*
 EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
   With[
     {dx = MapThread[Subtract, {Transpose[x], x0}]},
@@ -901,10 +975,15 @@ EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   If[Length[#2]<1, Table[0, {Length[#1]}], EdgesGradientCompiled[#1,#2,#3]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf], NeighborhoodEdgeLengths[surf]}];
+EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  EdgesGradientCompiled,
+  {X[[idcs]],
+   X[[#]]& /@ Part[NeighborhoodList[surf], idcs],
+   Part[NeighborhoodEdgeLengths[surf], idcs]}];
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
   0,
   Dimensions[VertexList[surf]]];
-     
+*)     
 
 (* #FaceAngles ************************************************************************************)
 FaceAngles[surf_?SurfaceQ[surf], X_] := With[
@@ -985,25 +1064,28 @@ NeighborhoodList[map_?MapQ] := If[MapName[map] =!= map,
     {res = Check[
        With[
          {V = VertexList[map]},
-           Last[
-             Reap[
-               Scan[
-                 Function[{face},
-                   Scan[
-                     Function[{pair},
-                       Sow[pair[[1]], pair[[2]]];
-                       Sow[pair[[2]], pair[[1]]]],
-                     Subsets[face, {2}]]],
-                 FaceList[map]],
-               Range[Length[V]],
-               Function[{id, neighbors},
-                 Apply[
-                   Sequence,
+         Last[
+           Reap[
+             Scan[
+               Function[{face},
+                 Scan[
+                   Function[{pair},
+                     Sow[pair[[1]], pair[[2]]];
+                     Sow[pair[[2]], pair[[1]]]],
+                   Subsets[face, {2}]]],
+               FaceList[map]],
+             Range[Length[V]],
+             Function[{id, neighbors},
+               Apply[
+                 Sequence,
+                 With[
+                   {neis = Union[neighbors]},
                    With[
-                     {neis = Union[neighbors]},
-                     With[
-                       {U = V[[neis]]},
-                       SortBy[Thread[neis -> U], ArcTan[#[[2,1]], #[[2,2]]]&][[All,1]]]]]]]]],
+                     {U = V[[neis]]},
+                     SortBy[
+                       Thread[neis -> U], 
+                       ArcTan[#[[2,1]] - V[[id,1]], #[[2,2]] - V[[id,2]]]&
+                      ][[All,1]]]]]]]]],
       $Failed]},
     If[res === $Failed, res, (map /: NeighborhoodList[map] = res)]]];
 
@@ -1037,6 +1119,9 @@ Protect[NeighborhoodAngleCompiled];
 NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   If[Length[#2]<2, {}, NeighborhoodAngleCompiled[#1,#2]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled[#1,#2]]&,
+  {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodAngles[SurfaceName[surf]],
@@ -1080,6 +1165,9 @@ NeighborhoodEdgeLengthsCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   If[Length[#2]<1, {}, NeighborhoodEdgeLengthsCompiled[#1,#2]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  If[Length[#2]<1, {}, NeighborhoodEdgeLengthsCompiled[#1,#2]]&,
+  {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodEdgeLengths[MapName[surf]],
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, NeighborhoodEdgeLengths[SurfaceName[surf]],
@@ -1113,11 +1201,210 @@ Protect[AnglesGradientCompiled];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
   If[Length[#2] < 2, Table[0,{Length[#1]}], AnglesGradientCompiled[#1,#2,#3]]&,
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
+  If[Length[#2] < 2, Table[0,{Length[#1]}], AnglesGradientCompiled[#1,#2,#3]]&,
+  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
     Dimensions[VertexList[surf]]];
 
-(* #CorticalPotentialField *********************************************************************)
+(* #TrianglesGradient *****************************************************************************)
+TriangleNormalsCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {u = (RotateLeft /@ x) - x,
+       dx = MapThread[Subtract, {x0, x}]},
+      With[
+        {n = {
+          u[[2]]*dx[[3]] - u[[3]]*dx[[2]],
+          u[[3]]*dx[[1]] - u[[1]]*dx[[3]], 
+          u[[1]]*dx[[2]] - u[[2]]*dx[[1]]}},
+        With[
+          {d = Sqrt[Total[n^2]]},
+          (#/d)& /@ n]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[TriangleNormalsCompiled];
+TriangleNormals[surf_ /; SurfaceQ[surf], X_] := MapThread[
+  TriangleNormalsCompiled,
+  {X, X[[#]] & /@ NeighborhoodList[surf]}];
+TriangleNormals[surf_ /; SurfaceQ[surf], X_, idcs_List] := MapThread[
+  TriangleNormalsCompiled,
+  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs]}];
+TriangleNormals[surf_ /; SurfaceQ[surf]] := Which[
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, TriangleNormals[SurfaceName[surf]],
+  True, With[
+    {res = Check[TriangleNormals[surf, VertexList[surf]], $Failed]},
+    If[!ListQ[res], $Failed, (TriangleNormals[surf] = res)]]];
+
+TriangleAxes2DCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {u = (RotateLeft /@ x) - x},
+      {u, {-u[[2]], u[[1]]}}]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+TriangleAxes3DCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}, {tnorm, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {u = (RotateLeft /@ x) - x,
+       dx = MapThread[Subtract, {x0, x}]},
+      {u,
+       {tnorm[[2]]*u[[3]] - tnorm[[3]]*u[[2]], 
+        tnorm[[3]]*u[[1]] - tnorm[[1]]*u[[3]],
+        tnorm[[1]]*u[[2]] - tnorm[[2]]*u[[1]]}}]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[TriangleAxes2DCompiled, TriangleAxes3DCompiled];
+TriangleAxes[surf_ /; SurfaceQ[surf], X_] := With[
+  {Xnei = X[[#]] & /@ NeighborhoodList[surf]},
+  MapThread[
+    TriangleAxes3DCompiled,
+    {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}]];
+TriangleAxes[surf_ /; SurfaceQ[surf], X_, idcs_List] := With[
+  {Xnei = X[[#]] & /@ Part[NeighborhoodList[surf], idcs],
+   Xsub = X[[idcs]]},
+  MapThread[
+    TriangleAxes3DCompiled,
+    {Xsub, Xnei, MapThread[TriangleNormalsCompiled, {Xsub, Xnei}]}]];
+TriangleAxes[surf_ /; MapQ[surf], X_] := MapThread[
+  TriangleAxes2DCompiled,
+  {X, X[[#]] & /@ NeighborhoodList[surf]}];
+TriangleAxes[surf_ /; MapQ[surf], X_, idcs_List] := MapThread[
+  TriangleAxes2DCompiled,
+  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs]}];
+TriangleAxes[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, TriangleAxes[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, TriangleAxes[SurfaceName[surf]],
+  True, With[
+    {res = Check[TriangleAxes[surf, VertexList[surf]], $Failed]},
+    If[!ListQ[res], $Failed, (TriangleAxes[surf] = res)]]];
+
+TriangleCoordinatesCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}, {axes, _Real, 3}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {dx = MapThread[Subtract, {x0, x}],
+       norms = Total[#^2]& /@ axes},
+      {Total[axes[[1]] * dx] / norms[[1]], Total[axes[[2]] * dx] / norms[[2]]}]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[TriangleCoordinatesCompiled];
+TriangleCoordinates[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {Xnei = X[[#]] & /@ NeighborhoodList[surf]},
+  MapThread[
+    TriangleCoordinatesCompiled,
+    {X, Xnei, 
+     If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]}]];
+TriangleCoordinates[surf_ /; SurfaceQ[surf] || MapQ[surf], Xall_, idcs_List] := With[
+  {Xnei = Xall[[#]] & /@ Part[NeighborhoodList[surf], idcs],
+   X = Xall[[idcs]]},
+  MapThread[
+    TriangleCoordinatesCompiled,
+    {X, Xnei, 
+     If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]}]];
+TriangleCoordinates[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
+  MapQ[surf] && MapName[surf] =!= surf, TriangleCoordinates[MapName[surf]],
+  SurfaceQ[surf] && SurfaceName[surf] =!= surf, TriangleCoordinates[SurfaceName[surf]],
+  True, With[
+    {res = Check[TriangleCoordinates[surf, VertexList[surf]], $Failed]},
+    If[!ListQ[res], $Failed, (TriangleCoordinates[surf] = res)]]];
+
+TrianglesGradientCompiled = Compile[
+  {{x0, _Real, 1}, {xnei, _Real, 2}, {coords, _Real, 2}, {axes, _Real, 3}},
+  With[
+    {x = Transpose[xnei],
+     pre = Plus[
+       Map[coords[[1]]*#&, axes[[1]]],
+       Map[coords[[2]]*#&, axes[[2]]]]},
+    With[
+      {dx = MapThread[Subtract, {x0, x + pre}]},
+      Total /@ dx]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[TrianglesGradientCompiled];
+TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {Xnei = X[[#]] & /@ NeighborhoodList[surf]},
+  With[
+    {axes = If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]],
+     coords = TriangleCoordinates[surf]},
+    MapThread[
+      TrianglesGradientCompiled,
+      {X, Xnei, coords, axes}]]];
+TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], Xall_, idcs_List] := With[
+  {Xnei = Xall[[#]] & /@ Part[NeighborhoodList[surf], idcs],
+   X = Xall[[#]]},
+  With[
+    {axes = If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]],
+     coords = TriangleCoordinates[surf]},
+    MapThread[
+      TrianglesGradientCompiled,
+      {X, Xnei, coords, axes}]]];
+TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+  0.0,
+  Dimensions[VertexList[surf]]];
+
+(* #TrianglesEnergy *******************************************************************************)
+TrianglesEnergyCompiled = Compile[
+  {{x0, _Real, 1}, {xnei, _Real, 2}, {coords, _Real, 2}, {axes, _Real, 3}},
+  With[
+    {x = Transpose[xnei],
+     pre = Plus[
+       Map[coords[[1]]*#&, axes[[1]]],
+       Map[coords[[2]]*#&, axes[[2]]]]},
+    With[
+      {dx = MapThread[Subtract, {x0, x + pre}]},
+      Total[0.5 * Flatten[dx*dx]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[TrianglesEnergyCompiled];
+TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {Xnei = X[[#]] & /@ NeighborhoodList[surf]},
+  With[
+    {axes = If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]],
+     coords = TriangleCoordinates[surf]},
+    Total@MapThread[
+      TrianglesEnergyCompiled,
+      {X, Xnei, coords, axes}]]];
+TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], Xall_, idcs_List] := With[
+  {Xnei = Xall[[#]] & /@ Part[NeighborhoodList[surf], idcs],
+   X = Xall[[#]]},
+  With[
+    {axes = If[SurfaceQ[surf],
+       MapThread[
+         TriangleAxes3DCompiled,
+         {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
+       MapThread[TriangleAxes2DCompiled, {X, Xnei}]],
+     coords = TriangleCoordinates[surf][[idcs]]},
+    Total@MapThread[
+      TrianglesEnergyCompiled,
+      {X, Xnei, coords, axes}]]];
+TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+
+(* #CorticalPotentialField ************************************************************************)
 CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := Catch[
   With[
     {opts = With[
@@ -1163,6 +1450,18 @@ CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := 
                   {1}]]],
             Hold[f__] :> Plus[f],
             {1}];
+          SetDelayed@@Replace[
+            Hold[
+              f[X_ /; ArrayQ[X, 2, NumericQ], idcs_List],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X, idcs]]&,
+                    parts[[All, 1]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Plus[f],
+            {1}];
           TagSetDelayed@@Replace[
             Hold[
               f,
@@ -1175,13 +1474,26 @@ CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := 
                   Hold[f_] :> f,
                   {1}]]],
             Hold[f__] :> Flatten[Plus[f]],
+            {1}];
+          TagSetDelayed@@Replace[
+            Hold[
+              f,
+              Gradient[f, X_ /; ArrayQ[X, 2, NumericQ], idcs_List],
+              Evaluate[
+                Replace[
+                  Hold@@Map[
+                    Hold[#[X, idcs]]&,
+                    parts[[All, 2]]],
+                  Hold[f_] :> f,
+                  {1}]]],
+            Hold[f__] :> Flatten[Plus[f]],
             {1}]]];
       f]]];
 
 (* #CorticalPotentialTerm *************************************************************************)
-CorticalPotentialTerm[___] := Message[
+CorticalPotentialTerm[s_, opts___] := Message[
   CorticalPotentialTerm::badarg,
-  "Unrecognized term name: " <> ToString[name]];
+  "Unrecognized term: " <> ToString[{opts}]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], EdgesConstant -> e_] := With[
   {const = N[e /. Automatic -> (1.0 / Length[EdgeList[s]])]},
   Which[
@@ -1192,7 +1504,9 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], EdgesConstant -> e_] := With
       Message[CorticalPotentialTerm::badarg, "EdgesConstant must be >= 0"];
       $Failed),
     const == 0, None,
-    True, {(const * EdgesEnergy[s,#])&, (const * EdgesGradient[s,#]&)}]];
+    True, {
+      (const * If[Length[{##}] == 1, EdgesEnergy[s,#], EdgesEnergy[s,#,{##}[[2]]]])&, 
+      (const * If[Length[{##}] == 1, EdgesGradient[s,#], EdgesGradient[s,#,{##}[[2]]]])&}]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesConstant -> e_] := With[
   {const = N[e /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])]},
   Which[
@@ -1203,7 +1517,22 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesConstant -> e_] := Wit
       Message[CorticalPotentialTerm::badarg, "AnglesConstant must be >= 0"];
       $Failed),
     const == 0, None,
-    True, {(const * AnglesEnergy[s,#])&, (const * AnglesGradient[s,#]&)}]];
+    True, {
+      (const * If[Length[{##}] == 1, AnglesEnergy[s,#], AnglesEnergy[s,#, {##}[[2]]]])&,
+      (const * If[Length[{##}] == 1, AnglesGradient[s,#], AnglesGradient[s,#, {##}[[2]]]])&}]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], TrianglesConstant -> e_] := With[
+  {const = N[e /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])]},
+  Which[
+    !NumericQ[const], (
+      Message[CorticalPotentialTerm::badarg, "TrianglesConstant must be a number"];
+      $Failed),
+    const < 0, (
+      Message[CorticalPotentialTerm::badarg, "TrianglesConstant must be >= 0"];
+      $Failed),
+    const == 0, None,
+    True, {
+      (const * If[Length[{##}]==1, TrianglesEnergy[s,#], TrianglesEnergy[s,#, {##}[[2]]]])&,
+      (const * If[Length[{##}]==1, TrianglesGradient[s,#], TrianglesGradient[s,#, {##}[[2]]]])&}]];
 (* Machinery for setting new cortical potential terms *)
 SetCorticalPotentialTerm[surf_, rule_, val_] := (
   Unprotect[CorticalPotentialTerm];
@@ -1240,6 +1569,8 @@ CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_, a_]] := UnsetCorticalPo
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
   (Flatten[NeighborhoodAngles[surf] - NeighborhoodAngles[surf, X]])^2];
+AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
+  (Flatten[NeighborhoodAngles[surf][[idcs]] - NeighborhoodAngles[surf, X, idcs]])^2];
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
 
@@ -1266,7 +1597,7 @@ SurfaceName[Rule[f_List, s_?SurfaceQ]] := SurfaceName[s];
 
 Radius[Rule[f_?FieldQ, m_?MapQ]] := Radius[m];
 ProjectedSurface[Rule[f_?FieldQ, m_?MapQ]] := ProjectedSurface[m];
-OrientPoint[Rule[f_?FieldQ, m_?MapQ]] := m;
+OrientPoint[Rule[f_?FieldQ, m_?MapQ]] := OrientPoint[m];
 InverseProjectionDispatch[Rule[f_?FieldQ, m_?MapQ]] := InverseProjectionDispatch[m];
 InverseProjectionTransform[Rule[f_?FieldQ, m_?MapQ]] := InverseProjectionTransform[m];
 ProjectionDispatch[Rule[f_?FieldQ, m_?MapQ]] := ProjectionDispatch[m];
@@ -1290,7 +1621,7 @@ VertexFilter[Rule[f_List, m_?MapQ]] := VertexFilter[m];
 FaceFilter[Rule[f_List, m_?MapQ]] := FaceFilter[m];
 Radius[Rule[f_List, m_?MapQ]] := Radius[m];
 ProjectedSurface[Rule[f_List, m_?MapQ]] := ProjectedSurface[m];
-OrientPoint[Rule[f_List, m_?MapQ]] := m;
+OrientPoint[Rule[f_List, m_?MapQ]] := OrientPoint[m];
 InverseProjectionDispatch[Rule[f_List, m_?MapQ]] := InverseProjectionDispatch[m];
 InverseProjectionTransform[Rule[f_List, m_?MapQ]] := InverseProjectionTransform[m];
 ProjectionDispatch[Rule[f_List, m_?MapQ]] := ProjectionDispatch[m];
@@ -1300,7 +1631,8 @@ ProjectionTransform[Rule[f_List, m_?MapQ]] := ProjectionTransform[m];
 DomainIndices[Rule[f_List, m_?MapQ]] := DomainIndices[m];
 Domain[Rule[f_List, m_?MapQ]] := Domain[m];
 Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[m]] := f;
-Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[Surface[m]]] :=f[[DomainIndices[m]]];
+Field[Rule[f_List, m_?MapQ]] /; 
+  (Length[f] == Length[VertexList[ProjectedSurface[m]]]) := f[[DomainIndices[m]]];
 FaceList[Rule[f_List, m_?MapQ]] := FaceList[m];
 MapQ[Rule[f_List, m_?MapQ]] := True;
 MapName[Rule[f_List, m_?MapQ]] := MapName[m];
@@ -1318,23 +1650,25 @@ Rule /: Normal[Rule[a_List, s_?SurfaceQ]] := MapThread[Rule, {VertexList[s], a}]
 Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[DomainIndices[m]] := MapThread[
   Rule,
   {VertexList[m], a}];
-Rule /: Normal[Rule[a_List, m_?MapQ]] /; Length[a] == Length[VertexList[Surface[m]]] := MapThread[
-  Rule,
-  {VertexList[m], a[[DomainIndices[m]]]}];
+Rule /: Normal[Rule[a_List, m_?MapQ]] /; 
+  (Length[a] == Length[VertexList[ProjectedSurface[m]]]) := MapThread[
+    Rule,
+    {VertexList[m], a[[DomainIndices[m]]]}];
 
 Rule[f_?FieldQ, s_?SurfaceQ] /; Length[Field[f]] != Length[Field[s]] := (
   Message[WithField::incompat];
   $Failed);
-Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[Surface[m]]] := (
+Rule[f_?FieldQ, m_?MapQ] /; Length[Field[f]] != Length[Field[ProjectedSurface[m]]] := (
   Message[WithField::incompat];
   $Failed);
 Rule[a_List, b_?SurfaceQ] /; Length[a] != Length[VertexList[b]] := (
   Message[WithField::incompat];
   $Failed);
-Rule[a_List, b_?MapQ] := (
-  Message[WithField::incompat];
-  $Failed
- ) /; (Length[a] != Length[VertexList[b]] && Length[a] != Length[VertexList[Surface[b]]]);
+Rule[a_List, b_?MapQ] /; (
+  Length[a] != Length[VertexList[b]] && Length[a] != Length[VertexList[ProjectedSurface[b]]]
+  ) := (
+    Message[WithField::incompat];
+    $Failed);
 
 Protect[Rule];
 
@@ -1358,15 +1692,16 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         FaceFilter, VertexFilter, VertexList,
         InverseProjectionDispatch, InverseProjectionTransform,
         Latitude, Longitude, MapHull, MapName, NeighborhoodAngles,
-        NeighborhoodEdgeLengths, NeighborhoodList, MapPlot, MapQ,
-        MergeSurfaces, OrientMatrix, OrientPoint, SphericalPolarAngle,
-        Polygons, ProjectionDispatch, ProjectionRotation,
-        ProjectionShear, ProjectionTransform, Radius, ReadVTK,
-        SphericalCoordinateStyle, SphericalToCartesian,
-        ProjectedSurface, SurfaeAnglesGradient, SurfacePlot,
-        SurfaceProjection, SurfaceQ, SurfaceRotation, SurfaceResample,
-        ToField, VertexIndexDispatch, WithField, WithFaceFilter,
-        WithVertexFilter, WithVertexList];
+        NeighborhoodEdgeLengths, NeighborhoodList, MapMeshPlot,
+        MapPlot, MapQ, MergeSurfaces, OrientMatrix, OrientPoint,
+        SphericalPolarAngle, Polygons, ProjectionDispatch,
+        ProjectionRotation, ProjectionShear, ProjectionTransform,
+        Radius, ReadVTK, SphericalCoordinateStyle,
+        SphericalToCartesian, ProjectedSurface, SurfaeAnglesGradient,
+        SurfacePlot, SurfaceProjection, SurfaceQ, SurfaceRotation,
+        SurfaceResample, ToField, TrianglesConstant, TrianglesEnergy,
+        TrianglesGradient, VertexIndexDispatch, WithField,
+        WithFaceFilter, WithVertexFilter, WithVertexList];
 
 ColorCortex[instructions___] := Block[{tmp},
    With[
