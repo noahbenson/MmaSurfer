@@ -645,8 +645,8 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
                 Map[VertexList[sym][[#]]&, FaceList[sym]]];
               sym]]]]]]];
 
-(* #StructuredRescale * ***************************************************************************)
-(* This is used be MapPlot and SurfacePlot when normalizing oddly structured  data sets in the color
+(* #StructuredRescale *****************************************************************************)
+(* This is used be MapPlot and SurfacePlot when normalizing oddly structured data sets in the color
    function scaling process *)
 StructuredRescale[dat_List] := If[ArrayDepth[dat] == 1,
    Rescale[dat],
@@ -779,7 +779,7 @@ WithVertexList[surf_?SurfaceQ, X_List /; MatchQ[Dimensions[X], {_,3}]] := Surfac
     FaceList -> FaceList[surf],
     FaceFilter -> FaceFilter[surf],
     VertexFilter -> VertexFilter[surf]];
-WithVertexList[surf_?SurfaceQ, X_List /; MatchQ[Dimensions[X], {_,2}]] := Surface[
+WithVertexList[surf_?MapQ, X_List /; MatchQ[Dimensions[X], {_,2}]] := SurfaceProjection[
     X, 
     Field -> Field[surf],
     FaceList -> FaceList[surf],
@@ -899,7 +899,7 @@ EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
-  EdgesGradientCompiled,
+  If[Length[#2]<1, Table[0, {Length[#1]}], EdgesGradientCompiled[#1,#2,#3]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf], NeighborhoodEdgeLengths[surf]}];
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
   0,
@@ -1035,7 +1035,7 @@ NeighborhoodAngleCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
   Parallelization -> True];
 Protect[NeighborhoodAngleCompiled];
 NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
-  NeighborhoodAngleCompiled,
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled[#1,#2]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
@@ -1078,7 +1078,7 @@ NeighborhoodEdgeLengthsCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
-  NeighborhoodEdgeLengthsCompiled,
+  If[Length[#2]<1, {}, NeighborhoodEdgeLengthsCompiled[#1,#2]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
 NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodEdgeLengths[MapName[surf]],
@@ -1111,7 +1111,7 @@ AnglesGradientCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}, {t0s, _Real,
   Parallelization -> True];
 Protect[AnglesGradientCompiled];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
-  AnglesGradientCompiled,
+  If[Length[#2] < 2, Table[0,{Length[#1]}], AnglesGradientCompiled[#1,#2,#3]]&,
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,

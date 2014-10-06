@@ -177,7 +177,7 @@ VoxelToCoordinate[vol_?VolumeQ, idx:{_?NumericQ, _?NumericQ, _?NumericQ}] := Wit
   {dims = Dimensions[vol],
    matrix = VoxelToCoordinateMatrix[vol]},
   If[And@@MapThread[TrueQ[0 < #1 <= #2]&, {idx, dims}],
-    Dot[matrix, Append[idx, 1.0]],
+    Dot[matrix, Append[(idx - 1.0) * (dims / (dims - 1.0)), 1.0]],
     (Message[VoxelToCoordinate::badarg, "index is not a valid voxel"];
      $Failed)]];
 VoxelToCoordinate[vol_?VolumeQ, idcs:{{_?NumericQ, _?NumericQ, _?NumericQ}..}] := With[
@@ -186,7 +186,7 @@ VoxelToCoordinate[vol_?VolumeQ, idcs:{{_?NumericQ, _?NumericQ, _?NumericQ}..}] :
   Map[
     Function[
       If[And@@MapThread[TrueQ[0 < #1 <= #2]&, {#, dims}],
-        Dot[matrix, Append[#, 1.0]],
+        Dot[matrix, Append[(# - 1.0) * (dims / (dims - 1.0)), 1.0]],
         (Message[VoxelToCoordinate::badarg, "index is not a valid voxel"];
          $Failed)]],
     idcs]];
@@ -194,18 +194,19 @@ Protect[VoxelToCoordinate];
 
 (* #CoordinateToVoxel *****************************************************************************)
 CoordinateToVoxel[vol_?VolumeQ, coord:{_?NumericQ, _?NumericQ, _?NumericQ}] := With[
-  {dims = Dimensions[vol],
-   idx = Dot[CoordinateToVoxelMatrix[vol], Append[coord, 1.0]]},
-  If[!And@@MapThread[TrueQ[0 < #1 <= #2]&, {idx, dims}],
-    Message[CoordinateToVoxel::badarg, "coordinate is outside voxel range"]];
-  idx];
+  {dims = Dimensions[vol]},
+  With[
+    {idx = Dot[CoordinateToVoxelMatrix[vol], Append[coord, 1.0]] * (dims - 1.0)/dims + 1.0},
+    If[!And@@MapThread[TrueQ[0 < #1 <= #2]&, {idx, dims}],
+      Message[CoordinateToVoxel::badarg, "coordinate is outside voxel range"]];
+    idx]];
 CoordinateToVoxel[vol_?VolumeQ, coords:{{_?NumericQ, _?NumericQ, _?NumericQ}..}] := With[
   {dims = Dimensions[vol],
    matrix = CoordinateToVoxelMatrix[vol]},
   Map[
     Function[
       With[
-        {coord = Dot[matrix, Append[#,1.0]]},
+        {coord = Dot[matrix, Append[#,1.0]] * (dims - 1.0)/dims + 1.0},
         If[!And@@MapThread[TrueQ[0 < #1 <= #2]&, {coord, dims}],
           Message[CoordinateToVoxel::badarg, "coordinate is outside voxel range"]];
         coord]],
