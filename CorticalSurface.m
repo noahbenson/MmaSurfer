@@ -1387,15 +1387,15 @@ TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, X_] := With[
   With[
     {axes = If[SurfaceQ[surf],
        MapThread[
-         TriangleAxes3DCompiled,
+         If[Length[#2]>0, TriangleAxes3DCompiled[#1,#2,#3], {}],
          {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
-       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]},
+       MapThread[If[Length[#2]>0, TriangleAxes2DCompiled[#1,#2], {}]&, {X, Xnei}]]},
     With[
       {coords = MapThread[
-         TriangleCoordinatesCompiled,
+         If[Length[#2]>0, TriangleCoordinatesCompiled[#1,#2,#3], {}]&,
          {X, Xnei, axes}]},
       MapThread[
-        TrianglesGradientCompiled,
+        If[Length[#2]>0, TrianglesGradientCompiled[#1,#2,#3,#4,#5], 0*#1]&,
         {X, Xnei, coords, axes, ConstantArray[scale, Length@X]}]]]];
 TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, Xall_, idcs_List] := With[
   {Xnei = X[[#]] & /@ Part[NeighborhoodList[surf], idcs],
@@ -1403,15 +1403,15 @@ TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, Xall_, idcs_Lis
   With[
     {axes = If[SurfaceQ[surf],
        MapThread[
-         TriangleAxes3DCompiled,
+         If[Length[#2]>0, TriangleAxes3DCompiled[#1,#2,#3], {}],
          {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
-       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]},
+       MapThread[If[Length[#2]>0, TriangleAxes2DCompiled[#1,#2], {}]&, {X, Xnei}]]},
     With[
       {coords = MapThread[
-         TriangleCoordinatesCompiled,
+         If[Length[#2]>0, TriangleCoordinatesCompiled[#1,#2,#3], {}]&,
          {X, Xnei, axes}]},
       MapThread[
-        TrianglesGradientCompiled,
+        If[Length[#2]>0, TrianglesGradientCompiled[#1,#2,#3,#4,#5], 0*#1]&,
         {X, Xnei, coords, axes, ConstantArray[scale, Length@X]}]]]];
 TrianglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_] := Which[
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, TrianglesGradient[SurfaceName[surf], scale],
@@ -1432,15 +1432,15 @@ TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, X_] := With[
   With[
     {axes = If[SurfaceQ[surf],
        MapThread[
-         TriangleAxes3DCompiled,
+         If[Length[#2]>0, TriangleAxes3DCompiled[#1,#2,#3], {}],
          {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
-       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]},
+       MapThread[If[Length[#2]>0, TriangleAxes2DCompiled[#1,#2], {}]&, {X, Xnei}]]},
     With[
       {coords = MapThread[
-         TriangleCoordinatesCompiled,
+         If[Length[#2]>0, TriangleCoordinatesCompiled[#1,#2,#3], {}]&,
          {X, Xnei, axes}]},
       Total@MapThread[
-        TrianglesEnergyCompiled,
+        If[Length[#2]>0, TrianglesEnergyCompiled[#1,#2,#3,#4,#5], 0]&,
         {X, Xnei, coords, axes, ConstantArray[scale, Length@X]}]]]];
 TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, Xall_, idcs_List] := With[
   {Xnei = Xall[[#]] & /@ Part[NeighborhoodList[surf], idcs],
@@ -1448,15 +1448,15 @@ TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_, Xall_, idcs_List]
   With[
     {axes = If[SurfaceQ[surf],
        MapThread[
-         TriangleAxes3DCompiled,
+         If[Length[#2]>0, TriangleAxes3DCompiled[#1,#2,#3], {}],
          {X, Xnei, MapThread[TriangleNormalsCompiled, {X, Xnei}]}],
-       MapThread[TriangleAxes2DCompiled, {X, Xnei}]]},
+       MapThread[If[Length[#2]>0, TriangleAxes2DCompiled[#1,#2], {}]&, {X, Xnei}]]},
     With[
       {coords = MapThread[
-         TriangleCoordinatesCompiled,
+         If[Length[#2]>0, TriangleCoordinatesCompiled[#1,#2,#3], {}]&,
          {X, Xnei, axes}]},
       Total@MapThread[
-        TrianglesEnergyCompiled,
+        If[Length[#2]>0, TrianglesEnergyCompiled[#1,#2,#3,#4,#5], 0]&,
         {X, Xnei, coords, axes, ConstantArray[scale, Length@X]}]]]];
 TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_] := Which[
   SurfaceQ[surf] && SurfaceName[surf] =!= surf, TrianglesEnergy[SurfaceName[surf], scale],
