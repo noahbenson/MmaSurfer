@@ -1179,7 +1179,7 @@ NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
 
 (* #AnglesGradient ********************************************************************************)
 (* This creates a function that can calculate the gradient of a (2d) angle in terms of x, and y *)
-AngleGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2},
+AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2},
   Compile @@ List[
     Map[{#, _Real}&, {x0, y0, x1, y1, x2, y2}],
     Map[
@@ -1194,7 +1194,7 @@ AngleGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2},
     RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
     RuntimeAttributes -> {Listable},
     Parallelization -> True]];
-AngleGradientCompiled3D = Block[{x0, y0, z0, x1, y1, z1, x2, y2, z2},
+AnglesGradientCompiled3D = Block[{x0, y0, z0, x1, y1, z1, x2, y2, z2},
   Compile @@ List[
     Map[{#, _Real}&, {x0, y0, z0, x1, y1, z1, x2, y2, z2}],
     Map[
@@ -1211,26 +1211,28 @@ AngleGradientCompiled3D = Block[{x0, y0, z0, x1, y1, z1, x2, y2, z2},
     Parallelization -> True]];
 Protect[AnglesGradientCompiled2D, AnglesGradientCompiled3D];
 AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
-  If[Length[#2] < 2, Table[0,{Length[#1]}],
-    With[
-      {tr = Transpose[#2]},
+  Function[
+    If[Length[#2] < 2, Table[0,{Length[#1]}],
       With[
-        {rt = RotateLeft /@ tr},
-        Total @ AnglesGradient3D[
-          #1[[1]], #1[[2]], #1[[3]],
-          tr[[1]], tr[[2]], tr[[3]],
-          rt[[1]], rt[[2]], rt[[3]]]]]],
+        {tr = Transpose[#2]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradienCompiledt3D[
+            #1[[1]], #1[[2]], #1[[3]],
+            tr[[1]], tr[[2]], tr[[3]],
+            rt[[1]], rt[[2]], rt[[3]]]]]]],
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?MapQ, X_] := MapThread[
-  If[Length[#2] < 2, Table[0,{Length[#1]}],
-    With[
-      {tr = Transpose[#2]},
+  Function[
+    If[Length[#2] < 2, Table[0,{Length[#1]}],
       With[
-        {rt = RotateLeft /@ tr},
-        Total @ AnglesGradient3D[
-          #1[[1]], #1[[2]],
-          tr[[1]], tr[[2]],
-          rt[[1]], rt[[2]]]]]],
+        {tr = Transpose[#2]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradientCompiled2D[
+            #1[[1]], #1[[2]],
+            tr[[1]], tr[[2]],
+            rt[[1]], rt[[2]]]]]]],
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
   If[Length[#2] < 2, Table[0,{Length[#1]}],
@@ -1238,7 +1240,7 @@ AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
       {tr = Transpose[#2]},
       With[
         {rt = RotateLeft /@ tr},
-        Total @ AnglesGradient3D[
+        Total @ AnglesGradientCompiled3D[
           #1[[1]], #1[[2]], #1[[3]],
           tr[[1]], tr[[2]], tr[[3]],
           rt[[1]], rt[[2]], rt[[3]]]]]],
@@ -1249,7 +1251,7 @@ AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
       {tr = Transpose[#2]},
       With[
         {rt = RotateLeft /@ tr},
-        Total @ AnglesGradient3D[
+        Total @ AnglesGradientCompiled2D[
           #1[[1]], #1[[2]],
           tr[[1]], tr[[2]],
           rt[[1]], rt[[2]]]]]],
