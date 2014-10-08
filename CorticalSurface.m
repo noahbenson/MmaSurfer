@@ -1104,40 +1104,48 @@ FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
     If[res === $Failed || !ListQ[res], $Failed, (surf /: FacesIndex[surf] = res)]]];
 
 (* #NeighborhoodAngles ****************************************************************************)
-NeighborhoodAngleCompiled2D = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
+NeighborhoodAngleCompiled2D = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
   With[
-    {dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]]}},
+    {x = Transpose[xnei]},
     With[
-      {norms = Sqrt[Total[dx^2]]},
+      {dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]]}},
       With[
-        {normed = dx/{norms, norms}},
+        {norms = Sqrt[Total[dx^2]]},
         With[
-          {rot = RotateLeft /@ normed},
-          ArcTan[rot[[1]], rot[[2]]] - ArcTan[normed[[1]], normed[[2]]]]]]],
+          {normed = dx/{norms, norms}},
+          With[
+            {rot = RotateLeft /@ normed},
+            ArcTan[rot[[1]], rot[[2]]] - ArcTan[normed[[1]], normed[[2]]]]]]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
-NeighborhoodAngleCompiled3D = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
+NeighborhoodAngleCompiled3D = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
   With[
-    {zaxis = Normalize[x0],
-     xaxis = Normalize[First@xnei]},
+    {x = Transpose[xnei]},
     With[
-      {yaxis = Cross[zaxis, xaxis],
-       dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]], x[[3]] - x0[[3]]}},
-      NeighborhoodAnglesCompiled2D[{0.0, 0.0}, Dot[{xaxis, yaxis}, x]]]],
+      {zaxis = Normalize[x0],
+       xaxis = Normalize[First@xnei]},
+      With[
+        {yaxis = Cross[zaxis, xaxis],
+         dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]], x[[3]] - x0[[3]]}},
+        NeighborhoodAnglesCompiled2D[{0.0, 0.0}, Dot[{xaxis, yaxis}, xnei]]]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 Protect[NeighborhoodAngleCompiled2D, NeighborhoodAnglesCompiled3D];
 NeighborhoodAngles[surf_?SurfaceQ, X_] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,Transpose[#2]]]&,
+  (*If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,#2]]&,*)
+  NeighborhoodAngleCompiled3D,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
 NeighborhoodAngles[surf_?MapQ, X_] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,Transpose[#2]]]&,
+  (*If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,#2]]&,*)
+  NeighborhoodAngleCompiled2D,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
 NeighborhoodAngles[surf_?SurfaceQ, X_, idcs_List] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,Transpose[#2]]]&,
+  (*If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,#2]]&,*)
+  NeighborhoodAngleCompiled3D,
   {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodAngles[surf_?MapQ, X_, idcs_List] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,Transpose[#2]]]&,
+  (*If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,#2]]&,*)
+  NeighborhoodAngleCompiled2D,
   {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
@@ -1203,7 +1211,8 @@ AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2, t0},
       Function[
         Simplify[
           D[Simplify[
-              Tan[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
+              (*Tan[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2,*)
+              Sin[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
               Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]],
             #],
           Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]]],
@@ -1657,14 +1666,13 @@ CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_, a_]] := UnsetCorticalPo
 
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
-  Tan[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
-(*  (Flatten[NeighborhoodAngles[surf] - NeighborhoodAngles[surf, X]])^2];*)
+  (*Tan[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2*)
+  Sin[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
-  Tan[
+  Sin[
     0.5*Subtract[
       Flatten[NeighborhoodAngles[surf][[idcs]]],
       Flatten[NeighborhoodAngles[surf, X, idcs]]]]^2];
-(*  (Flatten[NeighborhoodAngles[surf][[idcs]] - NeighborhoodAngles[surf, X, idcs]])^2];*)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)

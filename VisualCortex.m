@@ -1242,9 +1242,6 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
                      " numbers, or a function that, when given a vertexPosition -> vertexField",
                      " yields such a number"]];
                  Throw[$Failed])}]}],
-         const = ReplaceAll[
-           Replace[Constant /. options, Constant -> Automatic], 
-           Automatic -> (1.0/Length[u])],
          fn = mdl[RetinotopyToCorticalMap],
          angles = Check[
            Map[
@@ -1270,13 +1267,11 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
                    a]]],
              Field[s][[u]]],
            Throw[$Failed]]},
-        If[!NumericQ[const] || const < 0,
-          (Message[
-             CorticalPotentialTerm::badarg,
-             "Constant argument to SchiraModel must be a number >= 0"];
-          Throw[$Failed])];
         With[
-          {energy = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+          {const = ReplaceAll[
+             Replace[Constant /. options, Constant -> Automatic], 
+             Automatic -> (1.0/Total[weights])],
+           energy = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
              With[
                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
                With[
@@ -1300,6 +1295,11 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
            attrsIdxMap = SparseArray[u -> Range[Length[u]], Length[VertexList[s]], 0],
            replaceArray = ConstantArray[0.0, Dimensions[VertexList[s]]],
            zerov = ConstantArray[0.0, Length[First[VertexList[s]]]]},
+          If[!NumericQ[const] || const < 0,
+            (Message[
+               CorticalPotentialTerm::badarg,
+               "Constant argument to SchiraModel must be a number >= 0"];
+            Throw[$Failed])];
           {Function[
              With[
                {params = {##}},
