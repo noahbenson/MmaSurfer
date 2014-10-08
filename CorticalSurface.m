@@ -1104,24 +1104,40 @@ FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
     If[res === $Failed || !ListQ[res], $Failed, (surf /: FacesIndex[surf] = res)]]];
 
 (* #NeighborhoodAngles ****************************************************************************)
-NeighborhoodAngleCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+NeighborhoodAngleCompiled2D = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
   With[
-    {x = Transpose[xnei]},
+    {dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]]}},
     With[
-      {dx = Table[x[[i]]-x0[[i]], {i,1,Length[x0]}]},
+      {norms = Sqrt[Total[dx^2]]},
       With[
-        {norms = Sqrt[Total[dx^2]]},
+        {normed = dx/{norms, norms}},
         With[
-          {normed = dx/Table[norms, {Length[x0]}]},
-          ArcCos[Total[normed*(RotateLeft /@ normed)]]]]]],
+          {rot = RotateLeft /@ normed},
+          ArcTan[rot[[1]], rot[[2]]] - ArcTan[normed[[1]], normed[[2]]]]]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
-Protect[NeighborhoodAngleCompiled];
-NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled[#1,#2]]&,
+NeighborhoodAngleCompiled3D = Compile[{{x0, _Real, 1}, {x, _Real, 2}},
+  With[
+    {zaxis = Normalize[x0],
+     xaxis = Normalize[First@xnei]},
+    With[
+      {yaxis = Cross[zaxis, xaxis],
+       dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]], x[[3]] - x0[[3]]}},
+      NeighborhoodAnglesCompiled2D[{0.0, 0.0}, Dot[{xaxis, yaxis}, x]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  Parallelization -> True];
+Protect[NeighborhoodAngleCompiled2D, NeighborhoodAnglesCompiled3D];
+NeighborhoodAngles[surf_?SurfaceQ, X_] := MapThread[
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,Transpose[#2]]]&,
   {X, X[[#]]& /@ NeighborhoodList[surf]}];
-NeighborhoodAngles[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread[
-  If[Length[#2]<2, {}, NeighborhoodAngleCompiled[#1,#2]]&,
+NeighborhoodAngles[surf_?MapQ, X_] := MapThread[
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,Transpose[#2]]]&,
+  {X, X[[#]]& /@ NeighborhoodList[surf]}];
+NeighborhoodAngles[surf_?SurfaceQ, X_, idcs_List] := MapThread[
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled3D[#1,Transpose[#2]]]&,
+  {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
+NeighborhoodAngles[surf_?MapQ, X_, idcs_List] := MapThread[
+  If[Length[#2]<2, {}, NeighborhoodAngleCompiled2D[#1,Transpose[#2]]]&,
   {X[[idcs]], X[[#]]& /@ Part[NeighborhoodList[surf], idcs]}];
 NeighborhoodAngles[surf_] := Which[
   MapQ[surf] && MapName[surf] =!= surf, NeighborhoodAngles[MapName[surf]],
@@ -1225,7 +1241,7 @@ AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
           Total @ AnglesGradienCompiledt3D[
             #1[[1]], #1[[2]], #1[[3]],
             tr[[1]], tr[[2]], tr[[3]],
-            rt[[1]], rt[[2]], rt[[3]]
+            rt[[1]], rt[[2]], rt[[3]],
             #3]]]]],
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?MapQ, X_] := MapThread[
