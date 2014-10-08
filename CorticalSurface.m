@@ -927,9 +927,10 @@ EdgeLengths[surf_] := Which[
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
   Log[EdgeLengths[surf] / EdgeLengths[surf, X]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
-  Subtract[
-    Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
-    Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]^2];
+  Log[
+    Divide[
+      Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
+      Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
 (*
@@ -983,7 +984,7 @@ EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
   0,
   Dimensions[VertexList[surf]]];
-*)     
+*)
 
 (* #FaceAngles ************************************************************************************)
 FaceAngles[surf_?SurfaceQ[surf], X_] := With[
@@ -1186,7 +1187,7 @@ AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2, t0},
       Function[
         Simplify[
           D[Simplify[
-              Sin[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
+              Tan[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
               Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]],
             #],
           Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]]],
