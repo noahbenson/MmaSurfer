@@ -1179,36 +1179,40 @@ NeighborhoodEdgeLengths[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
 
 (* #AnglesGradient ********************************************************************************)
 (* This creates a function that can calculate the gradient of a (2d) angle in terms of x, and y *)
-AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2},
+AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2, t0},
   Compile @@ List[
-    Map[{#, _Real}&, {x0, y0, x1, y1, x2, y2}],
+    Map[{#, _Real}&, {x0, y0, x1, y1, x2, y2, t0}],
     Map[
       Function[
         Simplify[
           D[Simplify[
-              VectorAngle[{x1-x0, y1-y0}, {x2-x0, y2-y0}], 
-              Element[{x0, y0, x1, y1, x2, y2}, Reals]],
+              Sin[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
+              Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]],
             #],
-          Element[{x0, y0, x1, y1, x2, y2}, Reals]]],
+          Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]]],
       {x0, y0}],
     RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
     RuntimeAttributes -> {Listable},
     Parallelization -> True]];
-AnglesGradientCompiled3D = Block[{x0, y0, z0, x1, y1, z1, x2, y2, z2},
-  Compile @@ List[
-    Map[{#, _Real}&, {x0, y0, z0, x1, y1, z1, x2, y2, z2}],
-    Map[
-      Function[
-        Simplify[
-          D[Simplify[
-              VectorAngle[{x1-x0, y1-y0, z1-z0}, {x2-x0, y2-y0, z2-z0}], 
-              Element[{x0, y0, z0, x1, y1, z1, x2, y2, z2}, Reals]],
-            #],
-          Element[{x0, y0, z0, x1, y1, z1, x2, y2, z2}, Reals]]],
-      {x0, y0}],
-    RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
-    RuntimeAttributes -> {Listable},
-    Parallelization -> True]];
+AnglesGradientCompiled3D = Compile[
+  {{x0, _Real}, {y0, _Real}, {z0, _Real}, {x1, _Real}, {y1, _Real}, {z1, _Real}, 
+   {x2, _Real}, {y2, _Real}, {z2, _Real}, {t0, _Real}},
+  With[
+    {len1 = Norm[{x1 - x0, y1 - y0, z1 - z0}],
+     len0 = Norm[{x0,y0,z0}]},
+    With[
+      {xaxis = {x1 - x0, y1 - y0, z1 - z0} / len1,
+       zaxis = {x0,y0,z0} / len0},
+      With[
+        {yaxis = Cross[zaxis, xaxis],
+         u = {x2-x0, y2-y0, z2-z0}},
+        With[
+          {xx2 = Dot[xaxis, u],
+           yy2 = Dot[yaxis, u]},
+          AnglesGradientCompiled2D[0.0, 0.0, len1, 0.0, xx2, yy2, t0]]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  RuntimeAttributes -> {Listable},
+  Parallelization -> True];
 Protect[AnglesGradientCompiled2D, AnglesGradientCompiled3D];
 AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
   Function[
@@ -1220,7 +1224,8 @@ AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
           Total @ AnglesGradienCompiledt3D[
             #1[[1]], #1[[2]], #1[[3]],
             tr[[1]], tr[[2]], tr[[3]],
-            rt[[1]], rt[[2]], rt[[3]]]]]]],
+            rt[[1]], rt[[2]], rt[[3]]
+            #3]]]]],
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?MapQ, X_] := MapThread[
   Function[
@@ -1232,7 +1237,8 @@ AnglesGradient[surf_?MapQ, X_] := MapThread[
           Total @ AnglesGradientCompiled2D[
             #1[[1]], #1[[2]],
             tr[[1]], tr[[2]],
-            rt[[1]], rt[[2]]]]]]],
+            rt[[1]], rt[[2]],
+            #3]]]]],
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
   If[Length[#2] < 2, Table[0,{Length[#1]}],
@@ -1243,7 +1249,8 @@ AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
         Total @ AnglesGradientCompiled3D[
           #1[[1]], #1[[2]], #1[[3]],
           tr[[1]], tr[[2]], tr[[3]],
-          rt[[1]], rt[[2]], rt[[3]]]]]],
+          rt[[1]], rt[[2]], rt[[3]],
+          #3]]]],
   {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
   If[Length[#2] < 2, Table[0,{Length[#1]}],
@@ -1254,7 +1261,8 @@ AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
         Total @ AnglesGradientCompiled2D[
           #1[[1]], #1[[2]],
           tr[[1]], tr[[2]],
-          rt[[1]], rt[[2]]]]]],
+          rt[[1]], rt[[2]],
+          #3]]]],
   {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
@@ -1635,7 +1643,10 @@ AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
   Sin[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
 (*  (Flatten[NeighborhoodAngles[surf] - NeighborhoodAngles[surf, X]])^2];*)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
-  Sin[0.5*(Flatten[NeighborhoodAngles[surf][[idcs]]] - Flatten[NeighborhoodAngles[surf, X, idcs]])^2]];
+  Sin[
+    0.5*Subtract[
+      Flatten[NeighborhoodAngles[surf][[idcs]]],
+      Flatten[NeighborhoodAngles[surf, X, idcs]]]]^2];
 (*  (Flatten[NeighborhoodAngles[surf][[idcs]] - NeighborhoodAngles[surf, X, idcs]])^2];*)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
