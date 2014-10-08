@@ -1641,10 +1641,10 @@ CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_, a_]] := UnsetCorticalPo
 
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
-  Sin[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
+  Tan[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
 (*  (Flatten[NeighborhoodAngles[surf] - NeighborhoodAngles[surf, X]])^2];*)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
-  Sin[
+  Tan[
     0.5*Subtract[
       Flatten[NeighborhoodAngles[surf][[idcs]]],
       Flatten[NeighborhoodAngles[surf, X, idcs]]]]^2];
