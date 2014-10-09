@@ -1198,6 +1198,12 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
                        "Which argument to SchiraModel contains invalid indices"];
                      Throw[$Failed]),
                    True, Sow[VertexList -> val]],
+                 Method, Sow[
+                   Method -> Replace[
+                     val,
+                     Except["Gaussian"|"Parabolic"] :> Message[
+                       CorticalPotentialTerm::badarg,
+                       "Method must be either \"Gaussian\" or \"Parabolic\""]]],
                  PolarAngle, Sow[PolarAngle -> val],
                  Eccentricity, Sow[Eccentricity -> val],
                  Weights, Sow[Weights -> val],
@@ -1218,7 +1224,8 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
     With[
       {u = VertexList /. options,
        angleFn = Replace[PolarAngle /. options, PolarAngle -> First],
-       eccenFn = Replace[Eccentricity /. options, Eccentricity -> (#[[2]] &)]},
+       eccenFn = Replace[Eccentricity /. options, Eccentricity -> (#[[2]] &)],
+       method = (Method /.options) /. (Method -> "Gaussian")},
       If[!ListQ[u],
         (Message[
           CorticalPotentialTerm::badarg,
@@ -1271,24 +1278,46 @@ CorticalPotentialTerm[s_?MapQ, SchiraModel -> (args:{_SchiraModelObject, ___Rule
           {const = ReplaceAll[
              Replace[Constant /. options, Constant -> Automatic], 
              Automatic -> (1.0/Total[weights])],
-           energy = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
-             With[
-               {dx = MapThread[Subtract, {Transpose[ideals], x}]},
-               With[
-                 {norms = Sqrt[Total[dx^2]]},
-                 1.0 - Exp[-0.5*(norms/std)^2]]],
-             RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
-             Parallelization -> True],
-           grad = Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
-             With[
-               {dx = MapThread[Subtract, {x, Transpose[ideals]}]},
-               With[
-                 {norms = Sqrt[Total[dx^2]]},
-                 With[
-                   {scale = Exp[-0.5*(norms/std)^2]/std^2},
-                   {Total[dx[[1]]*scale], Total[dx[[2]]*scale]}]]],
-             RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
-             Parallelization -> True],
+           energy = Replace[
+             method,
+             {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+                With[
+                  {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                  With[
+                    {norms = Sqrt[Total[dx^2]]},
+                    1.0 - Exp[-0.5*(norms/std)^2]]],
+                RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+                Parallelization -> True],
+              "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+                With[
+                  {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                  With[
+                    {norms = Sqrt[Total[dx^2]]},
+                    0.5 * Min[norms]^2]],
+                RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+                Parallelization -> True]}],
+           grad = Replace[
+             method,
+             {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+                With[
+                  {dx = MapThread[Subtract, {x, Transpose[ideals]}]},
+                  With[
+                    {norms = Sqrt[Total[dx^2]]},
+                    With[
+                      {scale = Exp[-0.5*(norms/std)^2]/std^2},
+                      {Total[dx[[1]]*scale], Total[dx[[2]]*scale]}]]],
+                RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+                Parallelization -> True],
+              "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+                With[
+                  {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                  With[
+                    {norms = Sqrt[Total[dx^2]]},
+                    With[
+                      {k = First@Ordering[norms]},
+                      dx[[All, k]]]]],
+                RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+                Parallelization -> True]}],
            attrs = Check[
              MapThread[fn[#1, #2][[1 ;; 4]] &, {angles, eccen}],
              Throw[$Failed]],

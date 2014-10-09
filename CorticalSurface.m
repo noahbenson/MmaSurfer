@@ -924,6 +924,7 @@ EdgeLengths[surf_] := Which[
     If[res === $Failed || !ListQ[res], $Failed, (surf /: EdgeLengths[surf] = res)]]];
 
 (* #EdgesEnergy ***********************************************************************************)
+(*
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
   Log[EdgeLengths[surf] / EdgeLengths[surf, X]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
@@ -932,8 +933,8 @@ EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
       Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
       Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+*)
 
-(*
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
   (EdgeLengths[surf] - EdgeLengths[surf, X])^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
@@ -941,9 +942,9 @@ EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
     Flatten[NeighborhoodEdgeLengths[surf][[idcs]]],
     Flatten[NeighborhoodEdgeLengths[surf, X, idcs]]]^2];
 EdgesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
-*)
 
 (* #EdgesGradient *********************************************************************************)
+(*
 EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
   With[
     {dx = MapThread[Subtract, {Transpose[x], x0}]},
@@ -963,8 +964,8 @@ EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
   0,
   Dimensions[VertexList[surf]]];
+*)
 
-(*
 EdgesGradientCompiled = Compile[{{x0, _Real, 1}, {x, _Real, 2}, {d0, _Real, 1}},
   With[
     {dx = MapThread[Subtract, {Transpose[x], x0}]},
@@ -984,7 +985,6 @@ EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := MapThread
 EdgesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
   0,
   Dimensions[VertexList[surf]]];
-*)
 
 (* #FaceAngles ************************************************************************************)
 FaceAngles[surf_?SurfaceQ[surf], X_] := With[
@@ -1255,7 +1255,8 @@ AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
   {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?MapQ, X_] := MapThread[
   Function[
-    If[Length[#2] < 2, Table[0,{Length[#1]}],
+    If[Length[#2] < 2, 
+      {0,0},
       With[
         {tr = Transpose[#2]},
         With[
