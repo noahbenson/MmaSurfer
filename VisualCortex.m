@@ -826,7 +826,7 @@ CorticalMapToRetinotopy[SchiraModelObject[disp_], X_, Y_] := With[
     {res = inv[X + I*Y] * (90.0 / r90)},
     If[ListQ[First@res],
       Append[ComplexToVisualAngle[#[[1]]], #[[2]]]& /@ res,
-      Append[ComplexToVisualAngle[res[[1]], res[[2]]]]]]];
+      Append[ComplexToVisualAngle[res[[1]]], res[[2]]]]]];
 CorticalMapToRetinotopy[mdl_SchiraModelObject] := Function[CorticalMapToRetinotopy[mdl, ##]];
 
 RetinotopyToCorticalMap[SchiraModelObject[disp_], retinotopy:{{_,_}..}] := With[
