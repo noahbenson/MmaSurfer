@@ -120,17 +120,21 @@ EdgesEnergy::usage = "EdgesEnergy[s, X] yeilds the scalar energy for the given s
 EdgesGradient::usage = "EdgesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the edge lengths in s. The result is the gradient of the EdgesEnergy[s,X]. EdgesGradient[s] is equivalent to EdgesGradient[s,VertexList[s]], which is a list of zero-vectors.";
 AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total.";
 AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
+AnglesStrongEnergy::usage = "AnglesStrongEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total. Unlike AnglesEnergy[], AnglesStrongEnergy[] uses the sum of squares of the Tan of half the difference of the angles rather than the Sin.";
+AnglesStrongGradient::usage = "AnglesStrongGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors. Unlike AnglesGradient[], AnglesStrongGradient[] uses the sum of squares of the Tan of half the difference of the angles rather than the Sin.";
 TrianglesEnergy::usage = "TrianglesEnergy[s, X] is an alternate verision of AnglesEnergy[s, X], which should be better at considering the energy of flipped triangles.";
 TrianglesGradient::usage = "TrianglesGradient[s, X] is an alternate verision of AnglesGradient[s, X], which should be better at considering the energy of flipped triangles.";
 CorticalPotentialField::usage = "CorticalPotentialField[s, options...] yields a symbol f which, when evaluated as f[X] for a numeric list X with dieensios equial to those of VertexList[s], yields the potential energy of the vertex configuration X according to the options given. Similarly, Gradient[f, X] yields the flattened gradient vector for the conformation X and is appropriate for passing to optimization functions that require a gradient such as FindArgMin.
 The following options are accepted:
   EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
   AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
+  AnglesStrongConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
   TrianglesConstant must be a number >= 0 and specifies the relative strength of the triangles force in the potential function; any occurante of Automatic is replaced by 1/n where n is the number of angles in s (default: 0).
   Other options may be specified if they are defined via the CorticalPotentialTerm interface.";
 CorticalPotentialField::badterm = "Bad term given to CorticalPotentialField: `1`";
 EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialField that specifies the raltive strength of the edge forces.";
 AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
+AnglesStrongConstant::usage = "AnglesStrongConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
 TrianglesConstant::usage = "TrianglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the triangle forces.";
 CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
 CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
@@ -807,7 +811,7 @@ SurfacePlot[surf_?SurfaceQ, opts:OptionsPattern[]] := Graphics3D[
     Join[{opts}, Options[SurfacePlot]],
     Except[ColorFunction|ColorFunctionScaling]]];
 
-(* #WithVertexList **********************************************************************************)
+(* #WithVertexList ********************************************************************************)
 Options[WithVertexList] = {SphericalCoordinateStyle -> None};
 WithVertexList[surf_?SurfaceQ, X_List] /; Length[VertexList[surf]] != Length[X] := (
   Message[WithVertexList::incompat];
@@ -1105,29 +1109,34 @@ FacesIndex[surf_ /; SurfaceQ[surf] || MapQ[surf]] := Which[
 
 (* #NeighborhoodAngles ****************************************************************************)
 NeighborhoodAngleCompiled2D = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
-  With[
-    {x = Transpose[xnei]},
+  If[Length[xnei] == 0,
+    {},
     With[
-      {dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]]}},
+      {x = Transpose[xnei]},
       With[
-        {norms = Sqrt[Total[dx^2]]},
+        {dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]]}},
         With[
-          {normed = dx/{norms, norms}},
+          {norms = Sqrt[Total[dx^2]]},
           With[
-            {rot = RotateLeft /@ normed},
-            ArcTan[rot[[1]], rot[[2]]] - ArcTan[normed[[1]], normed[[2]]]]]]]],
+            {normed = dx/{norms, norms}},
+            With[
+              {rot = RotateLeft /@ normed},
+              ArcTan[rot[[1]], rot[[2]]] - ArcTan[normed[[1]], normed[[2]]]]]]]]],
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 NeighborhoodAngleCompiled3D = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
-  With[
-    {x = Transpose[xnei]},
+  If[Length[xnei] == 0,
+    {},
     With[
-      {zaxis = Normalize[x0],
-       xaxis = Normalize[First@xnei]},
+      {x = Transpose[xnei]},
       With[
-        {yaxis = Cross[zaxis, xaxis],
-         dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]], x[[3]] - x0[[3]]}},
-        NeighborhoodAnglesCompiled2D[{0.0, 0.0}, Dot[{xaxis, yaxis}, xnei]]]]],
+        {zaxis = Normalize[x0],
+         xaxis = Normalize[First@xnei]},
+        With[
+          {yaxis = Cross[zaxis, xaxis],
+           dx = {x[[1]] - x0[[1]], x[[2]] - x0[[2]], x[[3]] - x0[[3]]}},
+          NeighborhoodAnglesCompiled2D[{0.0, 0.0}, Dot[{xaxis, yaxis}, xnei]]]]]],
+  {{NeighborhoodAnglesCompiled2D[__], _Real, 1}},
   RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
   Parallelization -> True];
 Protect[NeighborhoodAngleCompiled2D, NeighborhoodAnglesCompiled3D];
@@ -1211,8 +1220,7 @@ AnglesGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2, t0},
       Function[
         Simplify[
           D[Simplify[
-              (*Tan[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2,*)
-              Sin[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2, 
+              Sin[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2,
               Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]],
             #],
           Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]]],
@@ -1242,9 +1250,10 @@ AnglesGradientCompiled3D = Compile[
 Protect[AnglesGradientCompiled2D, AnglesGradientCompiled3D];
 AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
   Function[
-    If[Length[#2] < 2, Table[0,{Length[#1]}],
+    If[Length[#2] < 2,
+      {0,0,0},
       With[
-        {tr = Transpose[#2]},
+        {tr = Transpose[X[[#2]]]},
         With[
           {rt = RotateLeft /@ tr},
           Total @ AnglesGradienCompiledt3D[
@@ -1252,13 +1261,13 @@ AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
             tr[[1]], tr[[2]], tr[[3]],
             rt[[1]], rt[[2]], rt[[3]],
             #3]]]]],
-  {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+  {X, NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?MapQ, X_] := MapThread[
   Function[
     If[Length[#2] < 2, 
       {0,0},
       With[
-        {tr = Transpose[#2]},
+        {tr = Transpose[X[[#2]]]},
         With[
           {rt = RotateLeft /@ tr},
           Total @ AnglesGradientCompiled2D[
@@ -1266,11 +1275,12 @@ AnglesGradient[surf_?MapQ, X_] := MapThread[
             tr[[1]], tr[[2]],
             rt[[1]], rt[[2]],
             #3]]]]],
-  {X, X[[#]] & /@ NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+  {X, NeighborhoodList[surf], NeighborhoodAngles[surf]}];
 AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
-  If[Length[#2] < 2, Table[0,{Length[#1]}],
+  If[Length[#2] < 2, 
+    {0,0,0},
     With[
-      {tr = Transpose[#2]},
+      {tr = Transpose[X[[#2]]]},
       With[
         {rt = RotateLeft /@ tr},
         Total @ AnglesGradientCompiled3D[
@@ -1278,11 +1288,12 @@ AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
           tr[[1]], tr[[2]], tr[[3]],
           rt[[1]], rt[[2]], rt[[3]],
           #3]]]],
-  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
+  {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
-  If[Length[#2] < 2, Table[0,{Length[#1]}],
+  If[Length[#2] < 2,
+    {0,0},
     With[
-      {tr = Transpose[#2]},
+      {tr = Transpose[X[[#2]]]},
       With[
         {rt = RotateLeft /@ tr},
         Total @ AnglesGradientCompiled2D[
@@ -1290,8 +1301,102 @@ AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
           tr[[1]], tr[[2]],
           rt[[1]], rt[[2]],
           #3]]]],
-  {X[[idcs]], X[[#]] & /@ Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
+  {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+    0,
+    Dimensions[VertexList[surf]]];
+
+(* #AnglesStrongGradient **************************************************************************)
+AnglesStrongGradientCompiled2D = Block[{x0, y0, x1, y1, x2, y2, t0},
+  Compile @@ List[
+    Map[{#, _Real}&, {x0, y0, x1, y1, x2, y2, t0}],
+    Map[
+      Function[
+        Simplify[
+          D[Simplify[
+              Tan[0.5*((ArcTan[x2-x0, y2-y0] - ArcTan[x1-x0, y1-y0]) - t0)]^2,
+              Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]],
+            #],
+          Element[{x0, y0, x1, y1, x2, y2, t0}, Reals]]],
+      {x0, y0}],
+    RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+    RuntimeAttributes -> {Listable},
+    Parallelization -> True]];
+AnglesStrongGradientCompiled3D = Compile[
+  {{x0, _Real}, {y0, _Real}, {z0, _Real}, {x1, _Real}, {y1, _Real}, {z1, _Real}, 
+   {x2, _Real}, {y2, _Real}, {z2, _Real}, {t0, _Real}},
+  With[
+    {len1 = Norm[{x1 - x0, y1 - y0, z1 - z0}],
+     len0 = Norm[{x0,y0,z0}]},
+    With[
+      {xaxis = {x1 - x0, y1 - y0, z1 - z0} / len1,
+       zaxis = {x0,y0,z0} / len0},
+      With[
+        {yaxis = Cross[zaxis, xaxis],
+         u = {x2-x0, y2-y0, z2-z0}},
+        With[
+          {xx2 = Dot[xaxis, u],
+           yy2 = Dot[yaxis, u]},
+          AnglesGradientCompiled2D[0.0, 0.0, len1, 0.0, xx2, yy2, t0]]]]],
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+  RuntimeAttributes -> {Listable},
+  Parallelization -> True];
+Protect[AnglesStrongGradientCompiled2D, AnglesStrongGradientCompiled3D];
+AnglesStrongGradient[surf_?SurfaceQ, X_] := MapThread[
+  Function[
+    If[Length[#2] < 2,
+      {0,0,0},
+      With[
+        {tr = Transpose[X[[#2]]]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradienCompiledt3D[
+            #1[[1]], #1[[2]], #1[[3]],
+            tr[[1]], tr[[2]], tr[[3]],
+            rt[[1]], rt[[2]], rt[[3]],
+            #3]]]]],
+  {X, NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+AnglesStrongGradient[surf_?MapQ, X_] := MapThread[
+  Function[
+    If[Length[#2] < 2, 
+      {0,0},
+      With[
+        {tr = Transpose[X[[#2]]]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradientCompiled2D[
+            #1[[1]], #1[[2]],
+            tr[[1]], tr[[2]],
+            rt[[1]], rt[[2]],
+            #3]]]]],
+  {X, NeighborhoodList[surf], NeighborhoodAngles[surf]}];
+AnglesStrongGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
+  If[Length[#2] < 2, 
+    {0,0,0},
+    With[
+      {tr = Transpose[X[[#2]]]},
+      With[
+        {rt = RotateLeft /@ tr},
+        Total @ AnglesGradientCompiled3D[
+          #1[[1]], #1[[2]], #1[[3]],
+          tr[[1]], tr[[2]], tr[[3]],
+          rt[[1]], rt[[2]], rt[[3]],
+          #3]]]],
+  {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
+AnglesStrongGradient[surf_?MapQ, X_, idcs_List] := MapThread[
+  If[Length[#2] < 2,
+    {0,0},
+    With[
+      {tr = Transpose[X[[#2]]]},
+      With[
+        {rt = RotateLeft /@ tr},
+        Total @ AnglesGradientCompiled2D[
+          #1[[1]], #1[[2]],
+          tr[[1]], tr[[2]],
+          rt[[1]], rt[[2]],
+          #3]]]],
+  {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
+AnglesStrongGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
     Dimensions[VertexList[surf]]];
 
@@ -1618,6 +1723,23 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesConstant -> e_] := Wit
     True, {
       (const * If[Length[{##}] == 1, AnglesEnergy[s,#], AnglesEnergy[s,#, {##}[[2]]]])&,
       (const * If[Length[{##}] == 1, AnglesGradient[s,#], AnglesGradient[s,#, {##}[[2]]]])&}]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesStrongConstant -> e_] := With[
+  {const = N[e /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])]},
+  Which[
+    !NumericQ[const], (
+      Message[CorticalPotentialTerm::badarg, "AnglesStrongConstant must be a number"];
+      $Failed),
+    const < 0, (
+      Message[CorticalPotentialTerm::badarg, "AnglesStrongConstant must be >= 0"];
+      $Failed),
+    const == 0, None,
+    True, {
+      (const * If[Length[{##}] == 1,
+         AnglesStrongEnergy[s,#],
+         AnglesStrongEnergy[s,#, {##}[[2]]]])&,
+      (const * If[Length[{##}] == 1,
+         AnglesStrongGradient[s,#],
+         AnglesStrongGradient[s,#, {##}[[2]]]])&}]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], TrianglesConstant -> e_] := With[
   {const = N[(e /. {c_, sc_} :> c) /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])],
    scale = N[(e /. {{c_, sc_} :> sc, _ :> 4.0}) /. Automatic -> 4.0]},
@@ -1667,7 +1789,6 @@ CorticalPotentialTerm /: Unset[CorticalPotentialTerm[s_, a_]] := UnsetCorticalPo
 
 (* #AnglesEnergy **********************************************************************************)
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
-  (*Tan[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2*)
   Sin[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
   Sin[
@@ -1675,6 +1796,16 @@ AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
       Flatten[NeighborhoodAngles[surf][[idcs]]],
       Flatten[NeighborhoodAngles[surf, X, idcs]]]]^2];
 AnglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+
+(* #AnglesStrongEnergy ****************************************************************************)
+AnglesStrongEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := Total[
+  Tan[0.5*(Flatten[NeighborhoodAngles[surf]] - Flatten[NeighborhoodAngles[surf, X]])]^2];
+AnglesStrongEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_, idcs_List] := Total[
+  Tan[
+    0.5*Subtract[
+      Flatten[NeighborhoodAngles[surf][[idcs]]],
+      Flatten[NeighborhoodAngles[surf, X, idcs]]]]^2];
+AnglesStrongEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
 
 (* #WithField and Machinery for specifying Cortical Surfaces as field -> surface ******************)
 WithField[s_?SurfaceQ, f_?FieldQ] := Rule[f, s];
@@ -1787,21 +1918,23 @@ EdgeCount[s_] := Length[EdgeList[s]];
 
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         ConvertCoordinates, Surface, SurfaceFromVTK, AnglesConstant,
-        AnglesEnergy, AnglesGradient, CorticalPotentialField,
-        CorticalPotentialTerm, Domain, DomainIndices, Duplicate,
-        EdgesConstant, EdgesEnergy, EdgesGradient, EdgeList,
-        FaceAngles, FaceList, Faces, FacesIndex, Field, FieldQ,
-        FaceFilter, VertexFilter, VertexList,
-        InverseProjectionDispatch, InverseProjectionTransform,
-        Latitude, Longitude, MapHull, MapName, NeighborhoodAngles,
-        NeighborhoodEdgeLengths, NeighborhoodList, MapMeshPlot,
-        MapPlot, MapQ, MergeSurfaces, OrientMatrix, OrientPoint,
-        SphericalPolarAngle, Polygons, ProjectionDispatch,
-        ProjectionRotation, ProjectionShear, ProjectionTransform,
-        Radius, ReadVTK, SphericalCoordinateStyle,
-        SphericalToCartesian, ProjectedSurface, SurfaeAnglesGradient,
-        SurfacePlot, SurfaceProjection, SurfaceQ, SurfaceRotation,
-        SurfaceResample, ToField, TrianglesConstant, TrianglesEnergy,
+        AnglesEnergy, AnglesGradient, AnglesStrongConstant,
+        AnglesStrongEnergy, AnglesStrongGradient,
+        CorticalPotentialField, CorticalPotentialTerm, Domain,
+        DomainIndices, Duplicate, EdgesConstant, EdgesEnergy,
+        EdgesGradient, EdgeList, FaceAngles, FaceList, Faces,
+        FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
+        VertexList, InverseProjectionDispatch,
+        InverseProjectionTransform, Latitude, Longitude, MapHull,
+        MapName, NeighborhoodAngles, NeighborhoodEdgeLengths,
+        NeighborhoodList, MapMeshPlot, MapPlot, MapQ, MergeSurfaces,
+        OrientMatrix, OrientPoint, SphericalPolarAngle, Polygons,
+        ProjectionDispatch, ProjectionRotation, ProjectionShear,
+        ProjectionTransform, Radius, ReadVTK,
+        SphericalCoordinateStyle, SphericalToCartesian,
+        ProjectedSurface, SurfaeAnglesGradient, SurfacePlot,
+        SurfaceProjection, SurfaceQ, SurfaceRotation, SurfaceResample,
+        ToField, TrianglesConstant, TrianglesEnergy,
         TrianglesGradient, VertexIndexDispatch, WithField,
         WithFaceFilter, WithVertexFilter, WithVertexList];
 

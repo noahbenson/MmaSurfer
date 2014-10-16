@@ -756,7 +756,7 @@ SchiraModelObjectPrep[params_List] := With[
       If[res === $Failed, res, (prf = res)]];
     prc := With[
       {res = Check[RetinotopyToCorticalMap[mdl], $Failed]},
-      If[res === $Failed, res, (prf = res)]];
+      If[res === $Failed, res, (prc = res)]];
     mdl]];
 Protect[SchiraModelObjectPrep];
 
