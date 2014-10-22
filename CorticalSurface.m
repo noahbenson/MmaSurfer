@@ -71,7 +71,7 @@ InverseProjectionTransform::usage = "InverseProjectionTransform[map] yields a fu
 MapQ::usage = "MapQ[x] yields true if and only if x is a map created as a projection of a surface.";
 MapName::usage = "MapName[x] yields the symbol to which all the given map's geometric data is attached. Note that while MapName[m] is always a map with the same vertices, faces, edges, etc. as m, it is not necessarily m, and does not necessarily have the same field as m.";
 MapConvexHull::usage = "MapConvexHull[m] yields the indices of the convex hull of the vertices in the given map m.";
-MapHull::usage = "MapConvexHull[m] yields the indices of the general hull of the vertices in the given map m. The general hull differs from the convex hull in that all vertices with faces ";
+MapHull::usage = "MapConvexHull[m] yields the indices of the general hull of the vertices in the given map m. The general hull differs from the convex hull in that all vertices with faces (in the surface) that are not part of the map are included in the general hull.";
 
 MergeSurfaces::usage = "MergeSurfaces[s1, s2, f] yields a surface object such that any point p appearing in either s1 or s2 is represented in the new surface and has field value equal to
  f[f1, f2] where f1 and f2 are the field values at p in surface s1 and s2 respectively (or None if no field is defined at that point).";
@@ -1293,17 +1293,18 @@ AnglesGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
           #3]]]],
   {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_?MapQ, X_, idcs_List] := MapThread[
-  If[Length[#2] < 2,
-    {0,0},
-    With[
-      {tr = Transpose[X[[#2]]]},
+  Function[
+    If[Length[#2] < 2,
+      {0,0},
       With[
-        {rt = RotateLeft /@ tr},
-        Total @ AnglesGradientCompiled2D[
-          #1[[1]], #1[[2]],
-          tr[[1]], tr[[2]],
-          rt[[1]], rt[[2]],
-          #3]]]],
+        {tr = Transpose[X[[#2]]]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradientCompiled2D[
+            #1[[1]], #1[[2]],
+            tr[[1]], tr[[2]],
+            rt[[1]], rt[[2]],
+            #3]]]]],
   {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
@@ -1387,17 +1388,18 @@ AnglesStrongGradient[surf_?SurfaceQ, X_, idcs_List] := MapThread[
           #3]]]],
   {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesStrongGradient[surf_?MapQ, X_, idcs_List] := MapThread[
-  If[Length[#2] < 2,
-    {0,0},
-    With[
-      {tr = Transpose[X[[#2]]]},
+  Function[
+    If[Length[#2] < 2,
+      {0,0},
       With[
-        {rt = RotateLeft /@ tr},
-        Total @ AnglesGradientCompiled2D[
-          #1[[1]], #1[[2]],
-          tr[[1]], tr[[2]],
-          rt[[1]], rt[[2]],
-          #3]]]],
+        {tr = Transpose[X[[#2]]]},
+        With[
+          {rt = RotateLeft /@ tr},
+          Total @ AnglesGradientCompiled2D[
+            #1[[1]], #1[[2]],
+            tr[[1]], tr[[2]],
+            rt[[1]], rt[[2]],
+            #3]]]]],
   {X[[idcs]], Part[NeighborhoodList[surf], idcs], NeighborhoodAngles[surf][[idcs]]}];
 AnglesStrongGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
     0,
