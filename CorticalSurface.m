@@ -122,6 +122,8 @@ AnglesEnergy::usage = "AnglesEnergy[s, X] yeilds the scalar energy for the given
 AnglesGradient::usage = "AnglesGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors.";
 AnglesStrongEnergy::usage = "AnglesStrongEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. AnglesEnergy[s] is equivalent to AnglesEnergy[s, VertexList[s]], which is always 0. The energy of angle deformation is the sum of the squares of the deviation between the angles in s and the angles in X divided by the number of angles total. Unlike AnglesEnergy[], AnglesStrongEnergy[] uses the sum of squares of the Tan of half the difference of the angles rather than the Sin.";
 AnglesStrongGradient::usage = "AnglesStrongGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the AnglesEnergy[s,X]. AnglesGradient[s] is equivalent to AnglesGradient[s,VertexList[s]], which is a list of zero-vectors. Unlike AnglesGradient[], AnglesStrongGradient[] uses the sum of squares of the Tan of half the difference of the angles rather than the Sin.";
+CentroidEnergy::usage = "CentroidEnergy[s, X] yeilds the scalar energy for the given surface or map s using the vertex coordinates given in X that is the result of the movement of the vertices in s away from the centroid of their neighbors. CentroidEnergy[s] is equivalent to CentroidEnergy[s, VertexList[s]], which is always 0. The energy of centroid deformation is the sum of the squares of the deviation between the vertices in s and the centroids in X where each centroid well is scaled by the average radius of the polygon surrounding the centroid.";
+CentroidGradient::usage = "CentroidGradient[s, X] yields the gradient matrix for the given surface or map s using the vertex coordinates given in X that is the result of deformation of the angles in s. The result is the gradient of the CentroidEnergy[s,X]. CentroidGradient[s] is equivalent to CentroidGradient[s, VertexList[s]], which is always a matrix of 0s.";
 TrianglesEnergy::usage = "TrianglesEnergy[s, X] is an alternate verision of AnglesEnergy[s, X], which should be better at considering the energy of flipped triangles.";
 TrianglesGradient::usage = "TrianglesGradient[s, X] is an alternate verision of AnglesGradient[s, X], which should be better at considering the energy of flipped triangles.";
 CorticalPotentialField::usage = "CorticalPotentialField[s, options...] yields a symbol f which, when evaluated as f[X] for a numeric list X with dieensios equial to those of VertexList[s], yields the potential energy of the vertex configuration X according to the options given. Similarly, Gradient[f, X] yields the flattened gradient vector for the conformation X and is appropriate for passing to optimization functions that require a gradient such as FindArgMin.
@@ -135,6 +137,7 @@ CorticalPotentialField::badterm = "Bad term given to CorticalPotentialField: `1`
 EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialField that specifies the raltive strength of the edge forces.";
 AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
 AnglesStrongConstant::usage = "AnglesStrongConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
+CentroidConstant::usage = "CentroidConstant is an option to CorticalPotentialField that specifies the relative strength of the centroid force.";
 TrianglesConstant::usage = "TrianglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the triangle forces.";
 CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
 CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
@@ -1256,7 +1259,7 @@ AnglesGradient[surf_?SurfaceQ, X_] := MapThread[
         {tr = Transpose[X[[#2]]]},
         With[
           {rt = RotateLeft /@ tr},
-          Total @ AnglesGradienCompiledt3D[
+          Total @ AnglesGradientCompiled3D[
             #1[[1]], #1[[2]], #1[[3]],
             tr[[1]], tr[[2]], tr[[3]],
             rt[[1]], rt[[2]], rt[[3]],
@@ -1607,6 +1610,62 @@ TrianglesEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], scale_] := Which[
     {res = Check[TrianglesEnergy[surf, scale, VertexList[surf]], $Failed]},
     If[ListQ[res], (TrianglesEnergy[surf, scale] = res), $Failed]]];
 
+(* #CentroidGradient ******************************************************************************)
+CentroidGradientCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {dx = MapThread[Subtract, {x, x0}]},
+      With[
+        {c = Mean /@ dx},
+        With[
+          {r = Mean@Sqrt@Total[MapThread[Subtract, {dx, c}]^2]},
+          -c/r]]]],
+  Parallelization -> True,
+  RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False}];
+CentroidGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {Xnei = X[[#]]& /@ NeighborhoodList[surf],
+   zero = If[SurfaceQ[surf], {0,0,0}, {0,0}]},
+  MapThread[
+    If[Length[#2] < 3, zero, CentroidGradientCompiled[#1,#2]]&,
+    {X, Xnei}]];
+CentroidGradient[surf_ /; SurfaceQ[surf] || MapQ[surf], Xall_, idcs_List] := With[
+  {Xnei = Xall[[#]]& /@ Part[NeighborhoodList[surf], idcs],
+   X = Xall[[idcs]],
+   zero = If[SurfaceQ[surf], {0,0,0}, {0,0}]},
+  MapThread[
+    If[Length[#2] < 3, zero, CentroidGradientCompiled[#1,#2]]&,
+    {X, Xnei}]];
+CentroidGradient[surf_ /; SurfaceQ[surf] || MapQ[surf]] := ConstantArray[
+  0,
+  Dimensions[VertexList[surf]]];
+
+(* #CentroidEnergy ********************************************************************************)
+CentroidEnergyCompiled = Compile[{{x0, _Real, 1}, {xnei, _Real, 2}},
+  With[
+    {x = Transpose[xnei]},
+    With[
+      {dx = MapThread[Subtract, {x, x0}]},
+      With[
+        {c = Mean /@ dx},
+        With[
+          {r = Mean@Sqrt@Total[MapThread[Subtract, {dx, c}]^2]},
+          0.5*Total[(c/r)^2]]]]],
+    Parallelization -> True,
+    RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False}];
+CentroidEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], X_] := With[
+  {Xnei = X[[#]]& /@ NeighborhoodList[surf]},
+  Total@MapThread[
+    If[Length[#2] < 3, 0, CentroidEnergyCompiled[#1, #2]]&,
+    {X, Xnei}]];
+CentroidEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf], Xall_, idcs_List] := With[
+  {Xnei = Xall[[#]]& /@ Part[NeighborhoodList[surf], idcs],
+   X = Xall[[idcs]]},
+  Total@MapThread[
+    If[Length[#2] < 3, 0, CentroidEnergyCompiled[#1, #2]]&,
+    {X, Xnei}]];
+CentroidEnergy[surf_ /; SurfaceQ[surf] || MapQ[surf]] := 0;
+
 (* #CorticalPotentialField ************************************************************************)
 CorticalPotentialField[surf_ /; SurfaceQ[surf] || MapQ[surf], optseq___Rule] := Catch[
   With[
@@ -1740,6 +1799,19 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], AnglesStrongConstant -> e_] 
       (const * If[Length[{##}] == 1,
          AnglesStrongGradient[s,#],
          AnglesStrongGradient[s,#, {##}[[2]]]])&}]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], CentroidConstant -> e_] := With[
+  {const = N[e /. Automatic -> (1.0 / Length[VertexList[s]])]},
+  Which[
+    !NumericQ[const], (
+      Message[CorticalPotentialTerm::badarg, "CentroidConstant must be a number"];
+      $Failed),
+    const < 0, (
+      Message[CorticalPotentialTerm::badarg, "CentroidConstant must be >= 0"];
+      $Failed),
+    const == 0, None,
+    True, {
+      (const * If[Length[{##}] == 1, CentroidEnergy[s,#], CentroidEnergy[s,#, {##}[[2]]]])&,
+      (const * If[Length[{##}] == 1, CentroidGradient[s,#], CentroidGradient[s,#, {##}[[2]]]])&}]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], TrianglesConstant -> e_] := With[
   {const = N[(e /. {c_, sc_} :> c) /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])],
    scale = N[(e /. {{c_, sc_} :> sc, _ :> 4.0}) /. Automatic -> 4.0]},
@@ -1917,6 +1989,7 @@ VertexCount[s_] := Length[VertexList[s]];
 EdgeCount[s_] := Length[EdgeList[s]];
 
 Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
+        CentroidConstant, CentroidGradient, CentroidEnergy,
         ConvertCoordinates, Surface, SurfaceFromVTK, AnglesConstant,
         AnglesEnergy, AnglesGradient, AnglesStrongConstant,
         AnglesStrongEnergy, AnglesStrongGradient,
