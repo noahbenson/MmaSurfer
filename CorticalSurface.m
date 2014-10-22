@@ -142,6 +142,16 @@ TrianglesConstant::usage = "TrianglesConstant is an option to CorticalPotentialF
 CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
 CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
 
+MapRegistrationProgressPlot::usage = "MapRegistrationProgressPlot[data] creates a simple line plot of the 2D data given.";
+MapRegister::usage = "MapRegister[map, potential] performs a minimization of the given map to the given potential field and yields the resulting vertex list. All options that can be passed to FindArgMin may be passed to MapRegister as well.
+Map registration proceeds through two steps: registration and post-registration untangling. In the first step, registration is performed by minimizing the vertex positions in this potential field. In the second step, the centroid-based potential is minimized until all neighborhoods of the map form regular polygons. If the map is given as a list of vertices instead of as a potential function, then the second untangling step is not performed (it cannot be without the original map).
+In addition to all valid FindArgMin options, the following options may be used:
+  StepMonitor gives the step monitor for FindArgMin, but if given the value Print, then a MapRegistrationProgressPlot is displayed during the registration process.
+  Note that options for FindArgMin are passed to the registration step but are not passed to the untangling step.";
+MapUntangle::usage = "MapUntangle[map] yields the result of minimizing the vertex list in the given map in the potential field defined by the centroid term (see CentroidConstant, CentroidEnergy, CentroidGradient) until all neighborhoods form regular polygons.";
+MapTangledQ::usage = "MapTangledQ[map,X] yields True if and only if there is at least one vertex in the vertex list X for the given map that does not lie inside a regular polygon of its neighbors; otherwise yields false.";
+MapTangles::usage = "MapTangles[map,X] yields a list of the indices of all vertices in the given map that are tangled, meaning they are either not inside of the polygon formed by their neighbors or their naighbors do not form a non-self-intersecting polygon. If no tangles exist, then the empty list is returned.";
+
 ColorCortex::usage = "ColorCortex[instructions...] yields a color function for a surface or map that follows the instructions given. Each instruction should be of the form <column> -> <color-instruction> where the column is a colum index in the field matrix of the surface or map that is to be colorized. An instruction can be given without the column rule (ie, just <color-instruction>) to indicate that the entire row (ie, when the field is just a vector). Color instructions may be PolarAngle, Eccentricity, Curvature, or a function that takes an argument and yields a color. No field row or cell that is either None or $Failed will ever pass a match, and any function that yields Indeterminate or $Failed will be skipped in the coloring. Instructions are attempted one at a time until there is a match, and if there is no match, then Gray is used.
 New cortical colors can be added by interfacing with the CorticalColor form.";
 CorticalColor::usage = "CorticalColor[tag] yields the cortical color instruction for the given tag. The CorticalColor form is only partially protected and may be assigned single-argument values such as CorticalColor[\"MyCustomColorScheme\"] = {{0,10}, {Red,Yellow,Green,Cyan}}. In this example, the color instruction \"MyCustomColorScheme\" would then be valid, and would blend the given colors over the range 0 to 10. A Function may also be given as the value, in which case the function is given the field value and expected to yield a color.
@@ -871,7 +881,7 @@ SurfaceResample[a_?SurfaceQ, b_?SurfaceQ, opts:OptionsPattern[]] := Catch[
 
 (* #MapConvexHull *********************************************************************************)
 MapConvexHull[map_?MapQ] := If[MapName[map] =!= map,
-  MapHull[MapName[map]],
+  MapConvexHull[MapName[map]],
   With[
     {res = Check[ConvexHull[VertexList[map]], $Failed]},
     If[res === $Failed, res, (map /: MapConvexHull[map] = res)]]];
@@ -883,14 +893,14 @@ MapHull[map_?MapQ] := If[MapName[map] =!= map,
     {res = Check[
        With[
          {hull = Cases[
-            Tally[Flatten[Subsets[#,{2}]& /@ FaceList[map], 1]],
+            Tally[Sort /@ Flatten[Subsets[#,{2}]& /@ FaceList[map], 1]],
             {edge_List, 1} :> edge,
             {1}],
           X = VertexList[map]},
          (* any edge that appears only once is on the hull *)
          SortBy[
            Union[Flatten[hull]],
-           Pi + ArcTan[X[[#, 1]], X[[#, 2]]]]],
+           (Pi + ArcTan[X[[#, 1]], X[[#, 2]]])&]],
        $Failed]},
     If[res === $Failed, res, (map /: MapHull[map] = res)]]];
 
@@ -2013,6 +2023,114 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         TrianglesGradient, VertexIndexDispatch, WithField,
         WithFaceFilter, WithVertexFilter, WithVertexList];
 
+(* #MapTangledQ ***********************************************************************************)
+MapTangledQ[map_?MapQ, X_] := With[
+  {nei = NeighborhoodList[map]},
+  Catch[
+    MapThread[
+      Function[{x, n},
+        If[Length[n] > 2,
+          With[
+            {xnei = X[[#]] & /@ n},
+            With[
+              {ord = Ordering[ArcTan[#[[1]] - x[[1]], #[[2]] - x[[2]]] & /@ xnei]},
+              With[
+                {rot = RotateLeft[ord, Position[ord, 1, {1}][[1, 1]] - 1]},
+                If[Range[Length[rot]] != rot || !Graphics`Mesh`InPolygonQ[xnei, x],
+                  Throw[True]]]]]]],
+      {X, nei}];
+    False]];
+MapTangledQ[map_?MapQ] := MapTangledQ[map, VertexList[map]];
+
+(* #MapTangles ************************************************************************************)
+MapTangles[map_?MapQ, X_] := With[
+  {nei = NeighborhoodList[map]},
+  Flatten@Last@Reap[
+    MapThread[
+      Function[{x, n, k},
+        If[Length[n] > 2,
+          With[
+            {xnei = X[[#]] & /@ n},
+            With[
+             {ord = Ordering[ArcTan[#[[1]] - x[[1]], #[[2]] - x[[2]]] & /@ xnei]},
+             With[
+               {rot = RotateLeft[ord, Position[ord, 1, {1}][[1, 1]] - 1]},
+               If[Range[Length[rot]] != rot || !Graphics`Mesh`InPolygonQ[xnei, x],
+                 Sow[k]]]]]]],
+      {X, nei, Range[Length@X]}]]];
+MapTangles[map_?MapQ] := MapTangles[map, VertexList[map]];
+
+(* #MapUntangle ***********************************************************************************)
+MapUntangle[map_?MapQ, Xtangled_, max_: 50] := With[
+  {P = CorticalPotentialField[
+     map,
+     AnglesConstant -> 0,
+     EdgesConstant -> 0,
+     CentroidConstant -> Automatic],
+   nei = NeighborhoodList[map]},
+  NestWhile[
+    Function[{X0},
+      With[
+        {tangles = With[
+           {t0 = MapTangles[map, X0]},
+           Union[Flatten[{t0, nei[[#]] & /@ t0}]]]},
+        Block[{X, f, g},
+          f[x_List] := P[ReplacePart[X0, Thread[tangles -> x]], tangles];
+         g[x_List] := Gradient[P, ReplacePart[X0, Thread[tangles -> x]], tangles];
+         ReplacePart[
+           X0,
+           Thread[
+             tangles -> Quiet[
+               First@FindArgMin[
+                 f[X],
+                 {X, X0[[tangles]]},
+                 Gradient :> g[X],
+                 Method -> {"QuasiNewton",
+                   "StepControl" -> {"LineSearch", "CurvatureFactor" -> 1.0}},
+                 AccuracyGoal -> 6,
+                 MaxIterations -> 100],
+               {FindArgMin::cvmit, FindArgMin::lstol}]]]]]],
+    Xtangled,
+    MapTangledQ[map, #] &,
+    1,
+    max]];
+
+(* #MapRegister ***********************************************************************************)
+Options[MapRegister] = Append[
+   FilterRules[Options[FindArgMin], Except[StepMonitor]],
+   StepMonitor -> Print];
+MapRegister[map_?MapQ, P_, opts : OptionsPattern[]] := Block[{x, f, g},
+  Module[
+    {progress = {},
+     PE0 = P[VertexList[map]],
+     butHull = 
+      Complement[Range[Length[VertexList[map]]], MapHull[map]],
+     X0 = VertexList[map]},
+    If[OptionValue[StepMonitor] === Print,
+      Print[Dynamic[MapRegistrationProgressPlot[progress]]]];
+    f[x_List] := P[ReplacePart[X0, Thread[butHull -> x]], butHull];
+    g[x_List] := Gradient[P, ReplacePart[X0, Thread[butHull -> x]], butHull];
+    With[
+      {Xtangled = ReplacePart[
+         X0,
+         Thread[
+           butHull -> First@FindArgMin[
+             f[x],
+             {x, X0[[butHull]]},
+             Gradient :> g[x],
+             opts,
+             StepMonitor :> AppendTo[
+               progress,
+               {Sqrt[Mean[Total[Transpose[(x - X0[[butHull]])^2]]]], f[x]/PE0*100.0}]]]],
+       dup = SurfaceProjection[ProjectedSurface[map], Duplicate -> map]},
+      With[
+        {X = MapUntangle[map, Xtangled, 10]},
+        Evaluate[dup] /: VertexList[dup] = X;
+        Field[map] -> dup]]]];
+
+Protect[MapTangledQ, MapTangles, MapUntangle, MapRegister];
+
+(* #ColorCortex ***********************************************************************************)
 ColorCortex[instructions___] := Block[{tmp},
    With[
     {ord = Join @@ Append[
