@@ -62,6 +62,7 @@ VertexIndexDispatch::usage = "VertexIndexDispatch[s] yields a dispatch that conv
 
 Domain::usage = "Domain[map] yields the Normal of the section of the surface from which map was derived.";
 DomainIndices::usage = "DomainIndices[map] yields a list of the indices into Normal[ProjectedSurface[map]] for the points that compose the domain of map.";
+FaceDomainIndices::usage = "FaceDomainIndices[map] yields a list of the indices into FaceList[ProjectedSurface[map]] for the faces that compose the domain of map.";
 ProjectionDispatch::usage = "ProjectionDispatch[map] yields a dispatch list (ie, for use with Replace and /.) that, when given a cartesian point on a surface projects it to the map.";
 ProjectionShear::usage = "ProjectionShear[map] yields the shearing matrix associated with map.";
 ProjectionRotation::usage = "ProjectionRotation[map] yields the rotation matrix associated with map.";
@@ -662,6 +663,14 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
                       If[fFilt[#], Apply[And, # /. dom], False]&],
                     tr,
                     {2}]]];
+              sym /: FaceDomainIndices[sym] := TagSet[
+                sym,
+                FaceDomainIndices[sym],
+                Replace[
+                  DomainIndices[sym][[#]]& /@ FaceList[sym], 
+                  Dispatch[
+                    MapThread[Rule, {FaceList[surf], Range[Length@FaceList[surf]]}]],
+                  {1}]];
               sym /: Polygons[sym] := TagSet[
                 sym,
                 Polygons[sym],
@@ -1922,6 +1931,7 @@ ProjectionShear[Rule[f_?FieldQ, m_?MapQ]] := ProjectionShear[m];
 SurfaceRotation[Rule[f_?FieldQ, m_?MapQ]] := SurfaceRotation[m];
 ProjectionTransform[Rule[f_?FieldQ, m_?MapQ]] := ProjectionTransform[m];
 DomainIndices[Rule[f_?FieldQ, m_?MapQ]] := DomainIndices[m];
+FaceDomainIndices[Rule[f_?FieldQ, m_?MapQ]] := FaceDomainIndices[m];
 Domain[Rule[f_?FieldQ, m_?MapQ]] := Domain[m];
 Field[Rule[f_?FieldQ, m_?MapQ]] := Part[Field[f], DomainIndices[m]];
 MapQ[Rule[f_?FieldQ, m_?MapQ]] := True;
@@ -1946,6 +1956,7 @@ ProjectionShear[Rule[f_List, m_?MapQ]] := ProjectionShear[m];
 SurfaceRotation[Rule[f_List, m_?MapQ]] := SurfaceRotation[m];
 ProjectionTransform[Rule[f_List, m_?MapQ]] := ProjectionTransform[m];
 DomainIndices[Rule[f_List, m_?MapQ]] := DomainIndices[m];
+FaceDomainIndices[Rule[f_List, m_?MapQ]] := FaceDomainIndices[m];
 Domain[Rule[f_List, m_?MapQ]] := Domain[m];
 Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[m]] := f;
 Field[Rule[f_List, m_?MapQ]] /; 
@@ -2007,9 +2018,9 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         AnglesStrongEnergy, AnglesStrongGradient,
         CorticalPotentialField, CorticalPotentialTerm, Domain,
         DomainIndices, Duplicate, EdgesConstant, EdgesEnergy,
-        EdgesGradient, EdgeList, FaceAngles, FaceList, Faces,
-        FacesIndex, Field, FieldQ, FaceFilter, VertexFilter,
-        VertexList, InverseProjectionDispatch,
+        EdgesGradient, EdgeList, FaceAngles, FaceDomainIndices,
+        FaceList, Faces, FacesIndex, Field, FieldQ, FaceFilter,
+        VertexFilter, VertexList, InverseProjectionDispatch,
         InverseProjectionTransform, Latitude, Longitude, MapHull,
         MapName, NeighborhoodAngles, NeighborhoodEdgeLengths,
         NeighborhoodList, MapMeshPlot, MapPlot, MapQ, MergeSurfaces,
@@ -2022,6 +2033,39 @@ Protect[SphericalAzimuth, Cartesian, CartesianToSpherical,
         ToField, TrianglesConstant, TrianglesEnergy,
         TrianglesGradient, VertexIndexDispatch, WithField,
         WithFaceFilter, WithVertexFilter, WithVertexList];
+
+(* #MapRegistrationProgressPlot *******************************************************************)
+MapRegistrationProgressPlot[progress_List] := If[
+  Length[progress] == 0,
+  Graphics[
+    {Text[
+       Style["Starting...", FontFamily -> "Arial", FontSize -> 14],
+       {0.5, 0.5}]}],
+     With[
+       {n = Length[progress],
+        prog = Transpose[progress],
+        range = Table[
+          {Min[progress[[All, k]]] - 0.05, 
+           Max[progress[[All, k]] + 0.05]},
+          {k, {1, 2}}]},
+       Graphics[
+         Join[
+           {Hue[2./3.], Point[progress[[1]]]},
+           MapThread[
+             Function[{rmsd1, pe1, rmsd2, pe2, k},
+               {Hue[2./3.*(1 - (k - 1.5)/(n - 1))],
+                Line[{{rmsd1, pe1}, {rmsd2, pe2}}],
+                Hue[2./3.*(1 - (k - 1)/(n - 1))],
+                Point[{rmsd2, pe2}]}],
+             {Most[prog[[1]]], Most[prog[[2]]],
+              Rest[prog[[1]]], Rest[prog[[2]]],
+              Range[2, Length[prog[[1]]]]}]],
+         Frame -> {{True, False}, {True, False}},
+         FrameLabel -> {{"Potential (% of initial Potential)", None}, {"RMSD", None}},
+         AspectRatio -> 0.6,
+         BaseStyle -> Directive[10, FontFamily -> "Arial"],
+         PlotLabel -> ("Step " <> ToString[Length@progress]),
+         PlotRange -> range]]];
 
 (* #MapTangledQ ***********************************************************************************)
 MapTangledQ[map_?MapQ, X_] := With[
@@ -2128,7 +2172,36 @@ MapRegister[map_?MapQ, P_, opts : OptionsPattern[]] := Block[{x, f, g},
         Evaluate[dup] /: VertexList[dup] = X;
         Field[map] -> dup]]]];
 
-Protect[MapTangledQ, MapTangles, MapUntangle, MapRegister];
+(* #MapRegistrationProgressPlot *******************************************************************)
+MapRegistrationProgressPlot[progress_List] := If[Length[progress] == 0,
+  Graphics[
+    {Text[
+      Style["Starting...", FontFamily -> "Arial", FontSize -> 14],
+      {0.5, 0.5}]}],
+  With[
+    {n = Length[progress],
+     prog = Transpose[progress],
+     range = Table[{Min[progress[[All, k]]] - 0.05, Max[progress[[All, k]] + 0.05]}, {k, {1, 2}}]},
+    Graphics[
+      Join[
+        {Hue[2./3.], Point[progress[[1]]]},
+        MapThread[
+          Function[{rmsd1, pe1, rmsd2, pe2, k},
+            {Hue[2./3.*(1 - (k - 1.5)/(n - 1))],
+             Line[{{rmsd1, pe1}, {rmsd2, pe2}}],
+             Hue[2./3.*(1 - (k - 1)/(n - 1))],
+             Point[{rmsd2, pe2}]}],
+          {Most[prog[[1]]], Most[prog[[2]]],
+           Rest[prog[[1]]], Rest[prog[[2]]],
+           Range[2, Length[prog[[1]]]]}]],
+      Frame -> {{True, False}, {True, False}},
+      FrameLabel -> {{"Potential (% of initial Potential)", None}, {"RMSD", None}},
+      AspectRatio -> 0.6,
+      BaseStyle -> Directive[10, FontFamily -> "Arial"],
+      PlotLabel -> ("Step " <> ToString[Length@progress]),
+      PlotRange -> range]]];
+
+Protect[MapRegistrationProgressPlot, MapTangledQ, MapTangles, MapUntangle, MapRegister];
 
 (* #ColorCortex ***********************************************************************************)
 ColorCortex[instructions___] := Block[{tmp},
