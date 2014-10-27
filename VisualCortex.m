@@ -169,7 +169,7 @@ CoordinateToVisualAngle[l_List /; MatchQ[Dimensions[l], {_,2}]] := With[
   Transpose[
     {90 - 180/Pi*ArcTan[tr[[1]], tr[[2]]],
      Sqrt[tr[[1]]^2 + tr[[2]]^2]}]];
-VisualAngleToCoordinate[t_, r_] := r * {Cos[Pi/180*t], Sin[Pi/180*t]};
+VisualAngleToCoordinate[t_, r_] := {r * Cos[Pi/180*t], r * Sin[Pi/180*t]};
 VisualAngleToCoordinate[{t:Except[_List], r:Except[_List]}] := r * {
   Cos[Pi/180*(90 - t)],
   Sin[Pi/180*(90 - t)]};
