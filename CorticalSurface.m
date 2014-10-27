@@ -129,16 +129,22 @@ TrianglesEnergy::usage = "TrianglesEnergy[s, X] is an alternate verision of Angl
 TrianglesGradient::usage = "TrianglesGradient[s, X] is an alternate verision of AnglesGradient[s, X], which should be better at considering the energy of flipped triangles.";
 CorticalPotentialField::usage = "CorticalPotentialField[s, options...] yields a symbol f which, when evaluated as f[X] for a numeric list X with dieensios equial to those of VertexList[s], yields the potential energy of the vertex configuration X according to the options given. Similarly, Gradient[f, X] yields the flattened gradient vector for the conformation X and is appropriate for passing to optimization functions that require a gradient such as FindArgMin.
 The following options are accepted:
-  EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
-  AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
-  AnglesStrongConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
-  TrianglesConstant must be a number >= 0 and specifies the relative strength of the triangles force in the potential function; any occurante of Automatic is replaced by 1/n where n is the number of angles in s (default: 0).
-  Other options may be specified if they are defined via the CorticalPotentialTerm interface.";
+ * EdgesConstant must be a number >= 0 and specifies the relative strength of the edge forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of edges in s (default: Automatic).
+ * AnglesConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
+ * AnglesStrongConstant must be a number >= 0 and specifies the relative strength of the angle forces in the potential function; any occurance of Automatic is replaced by 1/n where n is the number of angles in s (default: Automatic).
+ * Attractors must be an argument list (see ?Attractors).
+ * TrianglesConstant must be a number >= 0 and specifies the relative strength of the triangles force in the potential function; any occurante of Automatic is replaced by 1/n where n is the number of angles in s (default: 0).
+ * Other options may be specified if they are defined via the CorticalPotentialTerm interface.";
 CorticalPotentialField::badterm = "Bad term given to CorticalPotentialField: `1`";
 EdgesConstant::usage = "EdgesConstant is an option to CorticalPotentialField that specifies the raltive strength of the edge forces.";
 AnglesConstant::usage = "AnglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
 AnglesStrongConstant::usage = "AnglesStrongConstant is an option to CorticalPotentialField that specifies the raltive strength of the angle forces.";
 CentroidConstant::usage = "CentroidConstant is an option to CorticalPotentialField that specifies the relative strength of the centroid force.";
+Attractors::usage = "Attractors -> args is an option that may be passed to CorticalPotentialField to construct an attractor force. In an attractor force, a set of identified vertices are drawn toward set points in 2D (for a map) or 3D (for a surface) space. The attractor list should be specified as one of the elements of the given args, which must itself be a list. The attractor list should take the form {vertexID1 -> position1, vertexID2 -> position2, ...}. The following additional arguments to the Attractor force may be given in the args list:
+ * Constant -> c specifies that the value c (default: Automatic, which is equivalent to 1/n where n is the number of attracted points) should be the constant multiplier of the strength of the attraction.
+ * Method -> m where m may be \"Gaussian\" or \"Parabolic\" (default: \"Gaussian\")
+ * StandardDeviation -> s indicates that s (default: 16.0) should be the standard deviation of the Gaussian potential wells
+ * Weights -> W where W may be a list of weights for each attractor (in the same order as given in the attractor list) specifies that the elements of W are the individual constant modifiers on the attractors.";
 TrianglesConstant::usage = "TrianglesConstant is an option to CorticalPotentialField that specifies the raltive strength of the triangle forces.";
 CorticalPotentialTerm::usage = "CorticalPotentialTerm[s, name -> options] yields the pair {energyFunction, gradientFunction} for the given name with options and surface or map s. This form is partially protected and new values can be defined for it. Any name and option that is defined is a valid argument for the CorticalPotentialField function.";
 CorticalPotentialTerm::badarg = "Bad argument given to CorticalPotentialTerm: `1`";
@@ -1833,6 +1839,153 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], CentroidConstant -> e_] := W
     True, {
       (const * If[Length[{##}] == 1, CentroidEnergy[s,#], CentroidEnergy[s,#, {##}[[2]]]])&,
       (const * If[Length[{##}] == 1, CentroidGradient[s,#], CentroidGradient[s,#, {##}[[2]]]])&}]];
+CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], Attractors -> args_List] := With[
+  {options = Dispatch[
+     Reap[
+       Scan[
+         Function[
+           If[MatchQ[#, {Rule[_Integer, _List]..}],
+             Sow[Attractors -> #],
+             With[
+               {name = #[[1]], val = #[[2]]},
+               Switch[name,
+                 Method, Sow[
+                   Method -> Replace[
+                     val,
+                     Except["Gaussian"|"Parabolic"] :> Message[
+                       CorticalPotentialTerm::badarg,
+                       "Method must be either \"Gaussian\" or \"Parabolic\""]]],
+                 
+                 Weights, Sow[Weights -> val],
+                 Constant, Sow[Constant -> val],
+                 StandardDeviation, If[NumericQ[val] && val > 0,
+                   Sow[StandardDeviation -> val],
+                   (Message[
+                      CorticalPotentialTerm::badarg,
+                      "StandardDeviation must be a number > 0"];
+                    Throw[$Failed])],
+                 _, (
+                   Message[
+                     CorticalPotentialTerm::badarg,
+                     "Unrecognized option to Attractors term"];
+                   Throw[$Failed])]]]],
+         args];
+      ][[2, 1]]]},
+  With[
+    {attrBase = Attractors /. options,
+     method = (Method /.options) /. (Method -> "Gaussian")},
+    If[!ListQ[attrBase],
+      (Message[
+        CorticalPotentialTerm::badarg,
+        "no attractor list specification given to Attractors"];
+       Throw[$Failed])];
+    With[
+      {u = attrBase[[All, 1]],
+       dests = attrBase[[All, 2]],
+       std = Replace[StandardDeviation /. options, StandardDeviation -> 16.0],
+       weights = Replace[
+         Weights /. options,
+         {Weights -> Table[1.0, {Length[u]}],
+          n_?NumericQ /; n >= 0 :> Table[n, {Length[u]}],
+          l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] && Length[l] == Length[u] :> l,
+          f_ :> Replace[
+            Check[f /@ Normal[s][[u]], $Failed],
+            {l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] :> l,
+             _ :> (
+               Message[
+                 CorticalPotentialTerm::badarg,
+                 StringJoin[
+                   "Weights argument to Attractors must be a number >= 0, a list of such",
+                   " numbers, or a function that, when given a vertexPosition -> vertexField",
+                   " yields such a number"]];
+               Throw[$Failed])}]}],
+      With[
+        {const = ReplaceAll[
+           Replace[Constant /. options, Constant -> Automatic], 
+           Automatic -> (1.0/Total[weights])],
+         energy = Replace[
+           method,
+           {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+              With[
+                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                With[
+                  {norms = Sqrt[Total[dx^2]]},
+                  1.0 - Exp[-0.5*(norms/std)^2]]],
+              RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+              Parallelization -> True],
+            "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+              With[
+                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                With[
+                  {norms = Sqrt[Total[dx^2]]},
+                  0.5 * Min[norms]^2]],
+              RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+              Parallelization -> True]}],
+         grad = Replace[
+           method,
+           {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+              With[
+                {dx = MapThread[Subtract, {x, Transpose[ideals]}]},
+                With[
+                  {norms = Sqrt[Total[dx^2]]},
+                  With[
+                    {scale = Exp[-0.5*(norms/std)^2]/std^2},
+                    {Total[dx[[1]]*scale], Total[dx[[2]]*scale]}]]],
+              RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+              Parallelization -> True],
+            "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+              With[
+                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                With[
+                  {norms = Sqrt[Total[dx^2]]},
+                  With[
+                    {k = First@Ordering[norms]},
+                    dx[[All, k]]]]],
+              RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
+              Parallelization -> True]}],
+         attrs = Which[
+           SurfaceQ[s] && !MatchQ[Dimensions[dests], {Length[u], 3}], (
+             Message[CorticalPotentialTerm::badarg, "Surface attractors must be 3D"];
+             Throw[$Failed]),
+           MapQ[s] && !MatchQ[Dimensions[dests], {Length[u], 2}], (
+             Message[CorticalPotentialTerm::badarg, "Map attractors must be 2D"];
+             Throw[$Failed]),
+           True, dests],
+         attrsIdxMap = SparseArray[u -> Range[Length[u]], Length[VertexList[s]], 0],
+         replaceArray = ConstantArray[0.0, Dimensions[VertexList[s]]],
+         zerov = ConstantArray[0.0, Length[First[VertexList[s]]]]},
+        If[!NumericQ[const] || const < 0,
+          (Message[
+             CorticalPotentialTerm::badarg,
+             "Constant argument to Attractors must be a number >= 0"];
+          Throw[$Failed])];
+        {Function[
+           With[
+             {params = {##}},
+             If[Length[params] == 1, 
+               const*Total@Total[weights*MapThread[energy, {params[[1, u]], attrs}]],
+               With[
+                 {idcs = Transpose[
+                   Select[
+                     Transpose[{params[[2]], attrsIdxMap[[params[[2]]]]}], 
+                     #[[2]]>0&]]},
+                 const*Total@Flatten[
+                   weights[[idcs[[2]]]]*MapThread[
+                     energy,
+                     {params[[1, idcs[[1]]]], attrs[[idcs[[2]]]]}]]]]]],
+         Function[
+           With[
+             {params = {##}},
+             If[Length[params] == 1,
+               ReplacePart[
+                 replaceArray,
+                 MapThread[(#1 -> const*#2*grad[#3, #4])&, {u, weights, params[[1, u]], attrs}]],
+               With[
+                 {x = params[[1]],
+                  idcs = params[[2]]},
+                 MapThread[
+                   If[#2 == 0, zerov, const*weights[[#2]]*grad[x[[#1]], attrs[[#2]]]] &,
+                   {idcs, Normal[attrsIdxMap[[idcs]]]}]]]]]}]]]]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], TrianglesConstant -> e_] := With[
   {const = N[(e /. {c_, sc_} :> c) /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])],
    scale = N[(e /. {{c_, sc_} :> sc, _ :> 4.0}) /. Automatic -> 4.0]},
