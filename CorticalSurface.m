@@ -2147,8 +2147,7 @@ MapRegister[map_?MapQ, P_, opts : OptionsPattern[]] := Block[{x, f, g},
   Module[
     {progress = {},
      PE0 = P[VertexList[map]],
-     butHull = 
-      Complement[Range[Length[VertexList[map]]], MapHull[map]],
+     butHull = Complement[Range[Length[VertexList[map]]], MapHull[map]],
      X0 = VertexList[map]},
     If[OptionValue[StepMonitor] === Print,
       Print[Dynamic[MapRegistrationProgressPlot[progress]]]];
