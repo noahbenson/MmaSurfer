@@ -850,13 +850,14 @@ WithVertexList[surf_?SurfaceQ, X_List /; MatchQ[Dimensions[X], {_,3}]] := Surfac
     FaceList -> FaceList[surf],
     FaceFilter -> FaceFilter[surf],
     VertexFilter -> VertexFilter[surf]];
-WithVertexList[surf_?MapQ, X_List /; MatchQ[Dimensions[X], {_,2}]] := SurfaceProjection[
-    X, 
-    Field -> Field[surf],
-    FaceList -> FaceList[surf],
-    FaceFilter -> FaceFilter[surf],
-    VertexFilter -> VertexFilter[surf],
-    SphericalCoordinateStyle -> OptionValue[SphericalCoordinateStyle]];
+WithVertexList[map_?MapQ, X_List /; MatchQ[Dimensions[X], {_,2}]] := With[
+  {dup = SurfaceProjection[
+     Surface[map],
+     Duplicate -> map]},
+  Evaluate[dup] /: VertexList[dup] = X;
+  Evaluate[dup] /: Field[dup] = Field[map];
+  Evaluate[dup] /: Normal[dup] = MapThread[Rule, {X, Field[map]}];
+  dup];
 
 (* #SurfaceResample *******************************************************************************)
 Options[SurfaceResample] = Prepend[
