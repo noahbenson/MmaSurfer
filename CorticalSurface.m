@@ -1885,11 +1885,11 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], Attractors -> args_List] := 
        std = Replace[StandardDeviation /. options, StandardDeviation -> 16.0],
        weights = Replace[
          Weights /. options,
-         {Weights -> Table[1.0, {Length[u]}],
+         {Weights -> Table[1.0, {Length[attrBase]}],
           n_?NumericQ /; n >= 0 :> Table[n, {Length[u]}],
-          l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] && Length[l] == Length[u] :> l,
+          l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] && Length[l] == Length[attrBase] :> l,
           f_ :> Replace[
-            Check[f /@ Normal[s][[u]], $Failed],
+            Check[f /@ Normal[s][[attrBase[[All,1]]]], $Failed],
             {l_List /; ArrayQ[l, 1, NumericQ[#] && # >= 0 &] :> l,
              _ :> (
                Message[
@@ -1898,24 +1898,24 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], Attractors -> args_List] := 
                    "Weights argument to Attractors must be a number >= 0, a list of such",
                    " numbers, or a function that, when given a vertexPosition -> vertexField",
                    " yields such a number"]];
-               Throw[$Failed])}]}],
+               Throw[$Failed])}]}]},
       With[
         {const = ReplaceAll[
            Replace[Constant /. options, Constant -> Automatic], 
            Automatic -> (1.0/Total[weights])],
          energy = Replace[
            method,
-           {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+           {"Gaussian" :> Compile[{{x, _Real, 2}, {ideal, _Real, 2}},
               With[
-                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                {dx = Transpose[ideal - x]},
                 With[
                   {norms = Sqrt[Total[dx^2]]},
                   1.0 - Exp[-0.5*(norms/std)^2]]],
               RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
               Parallelization -> True],
-            "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+            "Parabolic" :> Compile[{{x, _Real, 2}, {ideal, _Real, 2}},
               With[
-                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                {dx = Transpose[ideal - x]},
                 With[
                   {norms = Sqrt[Total[dx^2]]},
                   0.5 * Min[norms]^2]],
@@ -1923,19 +1923,19 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], Attractors -> args_List] := 
               Parallelization -> True]}],
          grad = Replace[
            method,
-           {"Gaussian" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+           {"Gaussian" :> Compile[{{x, _Real, 2}, {ideals, _Real, 2}},
               With[
-                {dx = MapThread[Subtract, {x, Transpose[ideals]}]},
+                {dx = Transpose[x - ideals]},
                 With[
                   {norms = Sqrt[Total[dx^2]]},
                   With[
                     {scale = Exp[-0.5*(norms/std)^2]/std^2},
-                    {Total[dx[[1]]*scale], Total[dx[[2]]*scale]}]]],
+                    Transpose[(#*scale)& /@ dx]]]],
               RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
               Parallelization -> True],
-            "Parabolic" :> Compile[{{x, _Real, 1}, {ideals, _Real, 2}},
+            "Parabolic" :> Compile[{{x, _Real, 2}, {ideals, _Real, 2}},
               With[
-                {dx = MapThread[Subtract, {Transpose[ideals], x}]},
+                {dx = Transpose[ideals - x]},
                 With[
                   {norms = Sqrt[Total[dx^2]]},
                   With[
@@ -1958,34 +1958,41 @@ CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], Attractors -> args_List] := 
           (Message[
              CorticalPotentialTerm::badarg,
              "Constant argument to Attractors must be a number >= 0"];
-          Throw[$Failed])];
+           Throw[$Failed])];
         {Function[
            With[
              {params = {##}},
              If[Length[params] == 1, 
-               const*Total@Total[weights*MapThread[energy, {params[[1, u]], attrs}]],
+               const*Total[weights*energy[params[[1, u]], attrs]],
                With[
                  {idcs = Transpose[
-                   Select[
-                     Transpose[{params[[2]], attrsIdxMap[[params[[2]]]]}], 
-                     #[[2]]>0&]]},
+                    Select[
+                      Transpose[{params[[2]], Normal@attrsIdxMap[[params[[2]]]]}], 
+                      #[[2]]>0&]]},
                  const*Total@Flatten[
-                   weights[[idcs[[2]]]]*MapThread[
-                     energy,
-                     {params[[1, idcs[[1]]]], attrs[[idcs[[2]]]]}]]]]]],
+                   weights[[idcs[[2]]]]*energy[
+                     params[[1, idcs[[1]]]],
+                     attrs[[idcs[[2]]]]]]]]]],
          Function[
            With[
              {params = {##}},
              If[Length[params] == 1,
                ReplacePart[
                  replaceArray,
-                 MapThread[(#1 -> const*#2*grad[#3, #4])&, {u, weights, params[[1, u]], attrs}]],
+                 MapThread[(#1 -> const*#2*#3)&, {u, weights, grad[params[[1, u]], attrs]}]],
                With[
-                 {x = params[[1]],
-                  idcs = params[[2]]},
-                 MapThread[
-                   If[#2 == 0, zerov, const*weights[[#2]]*grad[x[[#1]], attrs[[#2]]]] &,
-                   {idcs, Normal[attrsIdxMap[[idcs]]]}]]]]]}]]]]];
+                 {idcs = Transpose[
+                    Select[
+                      Transpose[{params[[2]], Normal@attrsIdxMap[[params[[2]]]]}], 
+                      #[[2]]>0&]]},
+                 Part[
+                   ReplacePart[
+                     replaceArray,
+                     MapThread[
+                       (#1 -> const*#2*#3)&,
+                       {idcs[[1]], weights[[idcs[[2]]]], 
+                        grad[params[[1, idcs[[1]]]], attrs[[idcs[[2]]]]]}]],
+                   params[[2]]]]]]]}]]]];
 CorticalPotentialTerm[s_ /; SurfaceQ[s] || MapQ[s], TrianglesConstant -> e_] := With[
   {const = N[(e /. {c_, sc_} :> c) /. Automatic -> (1.0 / Length[Flatten@NeighborhoodList[s]])],
    scale = N[(e /. {{c_, sc_} :> sc, _ :> 4.0}) /. Automatic -> 4.0]},

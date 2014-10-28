@@ -651,10 +651,10 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
                     absw*Exp[I * Pi/2 * Sign[argw] * (Abs[argw] - v1b - v2b)/v3b],
                     side * If[Round[Abs@argw - v1b - v2b - v3b, tol] == 0, 7/2, 3]},
                   side < 0 && Round[hv4b - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
-                    absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b)/hv4b)],
+                    absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b)/hv4b - 0.5)],
                     If[Round[Abs@argw - v1b - v2b - v3b - hv4b, tol] == 0, -9/2, -4]},
                   side > 0 && Round[v3ab - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
-                    absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b)/v3ab - 0.5)],
+                    absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b)/v3ab)],
                     If[Round[Abs@argw - v1b - v2b - v3b - v3ab, tol] == 0, 9/2, 4]},
                   side < 0, {
                     absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b - hv4b)/(Pi - v1b - v2b - v3b - hv4b) - 0.5)],
