@@ -453,18 +453,18 @@ Protect[
 
 
 (* Default Schira Parameters **********************************************************************)
-$DefaultSchiraA = 2.0;
-$DefaultSchiraB = 60.0;
-$DefaultSchira\[CapitalLambda] = 1.0;
-$DefaultSchira\[CapitalPsi] = 0.30;
-$DefaultSchiraV1Size = 0.99;
-$DefaultSchiraV2Size = 0.79;
-$DefaultSchiraV3Size = 0.38;
+$DefaultSchiraA = 1.5;
+$DefaultSchiraB = 45.0;
+$DefaultSchira\[CapitalLambda] = 3.0;
+$DefaultSchira\[CapitalPsi] = 0.70;
+$DefaultSchiraV1Size = 1.10;
+$DefaultSchiraV2Size = 0.45;
+$DefaultSchiraV3Size = 0.35;
 $DefaultSchiraHV4Size = 0.3;
 $DefaultSchiraV3ASize = 0.3;
-$DefaultSchiraFC = {-0.14, -0.1};
-$DefaultSchiraScale = {0.35, 0.35};
-$DefaultSchiraShear = {{1, 0}, {0, 1}};
+$DefaultSchiraFC = {-0.15, -0.4};
+$DefaultSchiraScale = {40.0, 40.0};
+$DefaultSchiraShear = {{1, 0}, {-0.2, 1}};
 $DefaultSchira\[CapitalRho]90 = 90;
 $SchiraParameters = List[
    A :> $DefaultSchiraA,
@@ -591,12 +591,12 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
        {Dot[
           RotationMatrix[N[psi]],
           N[shearMtx]],
-        N[fc]}],
+        N[fc]}](*,
      sideFn = With[
        {u = If[ListQ[scale] && Times@@scale < 0,
           {Cos[psi + 0.5*Pi], Sin[psi + 0.5*Pi]},
           {Cos[psi - 0.5*Pi], Sin[psi - 0.5*Pi]}]},
-       Function[Sign[Dot[{Re@#, Im@#} - fc, u]]]]},
+       Function[Sign[Dot[{Re@#, Im@#} - fc, u]]]]*)},
     (* sanity checks should already be done: we compile the function next:
        this function is basically identical to the compiled function just above, but it does not
        perform the layered transform (ie, translating area V1-V4 into an imaginary number. This
@@ -625,20 +625,20 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
       (* Now, we create an inverse function for the forward function *)
       With[
         {inverse = Function[
-             Conjugate@FindRoot[
+             FindRoot[
                # == forward[w],
-               {w, 0.0001 - 0.0001*I, 0.0001 + 0.0001*I}
+               {w, 0.001 - 0.001*I, 0.001 + 0.001*I}
               ][[1,2]]]},
         (* And wrap this inverse in a translator for the areas *)
         Function[{z},
           With[
-            {w = Check[inverse[z], Undefined],
-             side = sideFn[z]},
+            {w = inverse[z]},
             If[!NumberQ[w],
               {0.0, 0},
               With[
                 {argw = Arg[w],
-                 absw = Abs[w]},
+                 absw = Abs[w],
+                 side = Sign[Arg[w]]},
                 Which[
                   Round[Abs@argw, tol] == 0, {absw + 0.0*I, 0},
                   Round[v1b - Abs@argw, tol] >= 0, {
@@ -657,10 +657,12 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
                     absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b)/v3ab)],
                     If[Round[Abs@argw - v1b - v2b - v3b - v3ab, tol] == 0, 9/2, 4]},
                   side < 0, {
-                    absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b - hv4b)/(Pi - v1b - v2b - v3b - hv4b) - 0.5)],
+                    absw*Exp[I * Pi * (
+                      0.5 - (Abs@argw - v1b - v2b - v3b - hv4b)/(Pi - v1b - v2b - v3b - hv4b))],
                     -5},
                   side > 0, {
-                    absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b - v3ab)/(Pi - v1b - v2b - v3b - v3ab))],
+                    absw*Exp[I * Pi * (
+                      (Abs@argw - v1b - v2b - v3b - v3ab)/(Pi - v1b - v2b - v3b - v3ab) - 0.5)],
                     5},
                   True, {-absw, Infinity}]]]],
           {Listable}]]]],
@@ -1064,10 +1066,10 @@ SchiraLinePlot[mdl_SchiraModelObject, opts : OptionsPattern[]] := Catch[
     With[
      {optseq = Sequence @@ FilterRules[
         {opts},
-        ReplacePart[Options[ParametricPlot], {All, 2} -> _]],
+        ReplacePart[Options[ParametricPlot], {_, 2} -> _]],
       optseqShow = Sequence @@ FilterRules[
         {opts},
-        ReplacePart[Options[Show], {All, 2} -> _]],
+        ReplacePart[Options[Show], {_, 2} -> _]],
       rhoTrans = Function[{rho}, range[[2, 1]] + (range[[2, 2]] - range[[2, 1]])*rho^3.5], 
       thetaLower = If[range[[1, 1]] > 90, None, {range[[1, 1]], Min[{90, range[[1, 2]]}]}], 
       thetaUpper = If[range[[1, 2]] < 90, None, {Max[{90, range[[1, 1]]}], range[[1, 2]]}],
@@ -1150,7 +1152,7 @@ SchiraLinePlot[mdl_SchiraModelObject, opts : OptionsPattern[]] := Catch[
                {plotRange = If[plotRangeArg =!= Automatic && plotRangeArg =!= Full,
                   plotRangeArg,
                   With[
-                    {ranges = Cases[AbsoluteOptions /@ graphics, (PlotRange -> r_) :>r, {2}]},
+                    {ranges = Cases[Options /@ graphics, (PlotRange -> r_) :>r, {2}]},
                     {{Min[ranges[[All, 1, 1]]], Max[ranges[[All, 1, 2]]]},
                      {Min[ranges[[All, 2, 1]]], Max[ranges[[All, 2, 2]]]}}]]}, 
                Show[graphics, PlotRange -> plotRange, optseqShow]]]]]]]]];
