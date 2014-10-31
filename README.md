@@ -25,6 +25,10 @@ This library is currently undergoing many rapid changes; the tutorial notebook
 is largely out of date, though many of the principles are correct. Expect the
 contents to change over the next couple of months.
 
+Additionally, this library will soon be depricated and replaced by the Neurotica
+library, which will incorporate all of the MmaSurfer functionality as well as
+additional functionality.
+
 ## License #####################################################################
 
 The MmaSurfer library is copyright (C) 2013-2014 by Noah C. Benson and is 
