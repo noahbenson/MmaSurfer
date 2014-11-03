@@ -625,7 +625,7 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
       (* Now, we create an inverse function for the forward function *)
       With[
         {inverse = Function[
-             FindRoot[
+             Conjugate@FindRoot[
                # == forward[w],
                {w, 0.001 - 0.001*I, 0.001 + 0.001*I}
               ][[1,2]]]},
