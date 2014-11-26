@@ -580,6 +580,8 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
      v3b = N[areas[[3]]],
      hv4b = N[areas[[4]]],
      v3ab = N[areas[[5]]],
+     maxAngle = Total[N[areas[[{1,2,3,5}]]]],
+     minAngle = Total[N[areas[[{1,2,3,4}]]]],
      dsech1 = 0.1821,
      dsech2 = 0.76,
      tol = 0.000001,
@@ -622,50 +624,75 @@ CompileSchiraInverse[a_, b_, lambda_, psi_, shearMtx_, scale_, fc_, areas_] := C
          RuntimeOptions -> {"Speed", "EvaluateSymbolically" -> False},
          Parallelization -> True,
          RuntimeAttributes -> {Listable}]},
-      (* Now, we create an inverse function for the forward function *)
       With[
-        {inverse = Function[
-             Conjugate@FindRoot[
-               # == forward[w],
-               {w, 0.001 - 0.001*I, 0.001 + 0.001*I}
-              ][[1,2]]]},
-        (* And wrap this inverse in a translator for the areas *)
-        Function[{z},
-          With[
-            {w = inverse[z]},
-            If[!NumberQ[w],
-              {0.0, 0},
-              With[
-                {argw = Arg[w],
-                 absw = Abs[w],
-                 side = Sign[Arg[w]]},
-                Which[
-                  Round[Abs@argw, tol] == 0, {absw + 0.0*I, 0},
-                  Round[v1b - Abs@argw, tol] >= 0, {
-                    absw*Exp[I * Pi/2 * argw / v1b], 
-                    If[side == 0, 1, side] * If[Round[Abs@argw - v1b, tol] == 0, 3/2, 1]},
-                  Round[v2b - (Abs@argw - v1b), tol] >= 0, {
-                    absw*Exp[I * Pi/2 * Sign[argw] * (1.0 - (Abs[argw] - v1b)/v2b)], 
-                    side * If[Round[Abs@argw - v1b - v2b, tol] == 0, 5/2, 2]},
-                  Round[v3b - (Abs@argw - v1b - v2b), tol] >= 0, {
-                    absw*Exp[I * Pi/2 * Sign[argw] * (Abs[argw] - v1b - v2b)/v3b],
-                    side * If[Round[Abs@argw - v1b - v2b - v3b, tol] == 0, 7/2, 3]},
-                  side < 0 && Round[hv4b - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
-                    absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b)/hv4b - 0.5)],
-                    If[Round[Abs@argw - v1b - v2b - v3b - hv4b, tol] == 0, -9/2, -4]},
-                  side > 0 && Round[v3ab - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
-                    absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b)/v3ab)],
-                    If[Round[Abs@argw - v1b - v2b - v3b - v3ab, tol] == 0, 9/2, 4]},
-                  side < 0, {
-                    absw*Exp[I * Pi * (
-                      0.5 - (Abs@argw - v1b - v2b - v3b - hv4b)/(Pi - v1b - v2b - v3b - hv4b))],
-                    -5},
-                  side > 0, {
-                    absw*Exp[I * Pi * (
-                      (Abs@argw - v1b - v2b - v3b - v3ab)/(Pi - v1b - v2b - v3b - v3ab) - 0.5)],
-                    5},
-                  True, {-absw, Infinity}]]]],
-          {Listable}]]]],
+        {samples = Nearest[
+           Apply[
+             Rule,
+             Transpose@Flatten[
+               Table[
+                 With[
+                   {z = (90.0*r^3.5)*Exp[I*t]},
+                   {{Re@#, Im@#}, z} & @ forward[z]],
+                 {t, -minAngle, maxAngle, 0.01 * (maxAngle + minAngle)},
+                 {r, 0, 1, 0.01}],
+               1]]],
+         distTol = EuclideanDistance[
+           {Re@#, Im@#}&@forward[10.0],
+           {Re@#, Im@#}&@forward[15.0]],
+         distTolSmall = EuclideanDistance[
+           {Re@#, Im@#}&@forward[10.0],
+           {Re@#, Im@#}&@forward[11.0]]},
+        (* Now, we create an inverse function for the forward function *)
+        With[
+          {inverse = Function[
+             With[
+               {close = samples[{Re@#, Im@#}, {1, distTol}]},
+               If[Length[close] == 0,
+                 $Failed,
+                 Conjugate@FindRoot[
+                   # == forward[w],
+                   {w, close[[1]] - 0.001 - 0.001*I, close[[1]] + 0.001 + 0.001*I}
+                  ][[1,2]]]]]},
+          (* And wrap this inverse in a translator for the areas *)
+          Function[{z},
+            With[
+              {w = inverse[z]},
+              If[
+                !And[
+                  NumberQ[w],
+                  Norm[{Re@z, Im@z} - {Re@#, Im@#}]&@forward[Conjugate@w] <= distTolSmall],
+                {0.0, 0},
+                With[
+                  {argw = Arg[w],
+                   absw = Abs[w],
+                   side = Sign[Arg[w]]},
+                  Which[
+                    Round[Abs@argw, tol] == 0, {absw + 0.0*I, 0},
+                    Round[v1b - Abs@argw, tol] >= 0, {
+                      absw*Exp[I * Pi/2 * argw / v1b], 
+                      If[side == 0, 1, side] * If[Round[Abs@argw - v1b, tol] == 0, 3/2, 1]},
+                    Round[v2b - (Abs@argw - v1b), tol] >= 0, {
+                      absw*Exp[I * Pi/2 * Sign[argw] * (1.0 - (Abs[argw] - v1b)/v2b)], 
+                      side * If[Round[Abs@argw - v1b - v2b, tol] == 0, 5/2, 2]},
+                    Round[v3b - (Abs@argw - v1b - v2b), tol] >= 0, {
+                      absw*Exp[I * Pi/2 * Sign[argw] * (Abs[argw] - v1b - v2b)/v3b],
+                      side * If[Round[Abs@argw - v1b - v2b - v3b, tol] == 0, 7/2, 3]},
+                    side < 0 && Round[hv4b - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
+                      absw*Exp[I * Pi * ((Abs@argw - v1b - v2b - v3b)/hv4b - 0.5)],
+                      If[Round[Abs@argw - v1b - v2b - v3b - hv4b, tol] == 0, -9/2, -4]},
+                    side > 0 && Round[v3ab - (Abs@argw - v1b - v2b - v3b), tol] >= 0, {
+                      absw*Exp[I * Pi * (0.5 - (Abs@argw - v1b - v2b - v3b)/v3ab)],
+                      If[Round[Abs@argw - v1b - v2b - v3b - v3ab, tol] == 0, 9/2, 4]},
+                    side < 0, {
+                      absw*Exp[I * Pi * (
+                        0.5 - (Abs@argw - v1b - v2b - v3b - hv4b)/(Pi - v1b - v2b - v3b - hv4b))],
+                      -5},
+                    side > 0, {
+                      absw*Exp[I * Pi * (
+                        (Abs@argw - v1b - v2b - v3b - v3ab)/(Pi - v1b - v2b - v3b - v3ab) - 0.5)],
+                      5},
+                    True, {-absw, Infinity}]]]],
+            {Listable}]]]]],
   $Failed];
 Protect[CompileSchiraFunction, CompileSchiraInverse];
 
