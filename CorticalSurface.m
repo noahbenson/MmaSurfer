@@ -93,7 +93,8 @@ OrientPoint::usage = "OrientPoint is a keyword that represents the ultimate orie
 OrientMatrix::usage = "OrientMatrix[map] yields the orientation matrix applied to the transformation that produced the surface projection, map.";
 Duplicate::usage = "Duplicate is an option to SurfaceProjection which specifies that the projection should, unless otherwise specified in the options list, use the transformation arguments used by the given map.";
 
-MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[] may be given.";
+MapPlot::usage = "MapPlot[map] yields a 2D map plot of the given map; all options for Graphics[] may be given. The Curvature option may also be a list of curvature values, or a map with curvature values, or Automatic (if the given map has curvature attached).";
+MapPlot::badarg = "Bad arguent given to MapPlot: `1`";
 MapMeshPlot::usage = "MapMeshPlot[map] is identical to MapPlot except that it plots the map as a mesh instead of as a set of polygons.";
 MapMeshPlot::badarg = "Bad arguent given to MapMeshPlot: `1`";
 
@@ -506,6 +507,7 @@ Options[SurfaceProjection] = {
   Duplicate -> None,
   VertexFilter -> None,
   FaceFilter -> None,
+  Curvature -> Automatic,
   Scale -> 1.0};
 SurfaceProjection[surf_, OptionsPattern[]] := Catch[
   With[
@@ -517,14 +519,16 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
           Radius -> (Pi / 3.0),
           ProjectionShear -> {{1,0},{0,1}},
           VertexFilter -> None,
-          FaceFilter -> None},
+          FaceFilter -> None,
+          Curvature -> Automatic},
         map_?MapQ :> {
           OrientPoint -> OrientPoint[map],
           Center -> Center[map],
           Radius -> Radius[map],
           ProjectionShear -> ProjectionShear[map],
           VertexFilter -> VertexFilter[map],
-          FaceFilter -> FaceFilter[map]},
+          FaceFilter -> FaceFilter[map],
+          Curvature -> Curvature[map]},
         _ :> (
           Message[SurfaceProjection::badarg, Duplicate, "must be None or a projection map"];
           Throw[$Failed])}]},
@@ -654,6 +658,29 @@ SurfaceProjection[surf_, OptionsPattern[]] := Catch[
                       {DomainIndices[sym], Range[Length@DomainIndices[sym]]}],
                     _ -> Undefined]]];
               sym /: Field[sym] := TagSet[sym, Field[sym], Normal[sym][[All,2]]];
+              sym /: Curvature[sym] = Replace[
+                OptionValue[Curvature],
+                {(c_List /; Length[c] == Length[VertexList[surf]]) :> c[[DomainIndices[sym]]],
+                 (c_List /; Length[c] == Length[DomainIndices[sym]]) :> c,
+                 (m_?MapQ /; Length[Curvature[m]] == Length[DomainIndices[sym]]) :> Curvature[m],
+                 (m_?MapQ /; Length[Field[m]] == Length[DomainIndices[sym]]) :> Field[m],
+                 (s_?SurfaceQ /; Length[Curvature[s]] == Length[VertexList[surf]]) :> Part[
+                   Curvature[s],
+                   DomainIndices[sym]],
+                 (s_?SurfaceQ /; Length[Field[s]] == Length[VertexList[surf]]) :> Part[
+                   Field[s],
+                   DomainIndices[sym]],
+                 Automatic :> Replace[
+                   Curvature,
+                   Append[
+                     dflt,
+                     Curvature :> If[ListQ[Curvature[surf]],
+                       Part[Curvature[surf], DomainIndices[sym]],
+                       None]]],
+                 None -> None,
+                 _ :> (
+                   Message[SurfaceProjection::badarg, Curvature, "unrecognized option value"];
+                   None)}];
               sym /: FaceList[sym] := TagSet[
                 sym,
                 FaceList[sym],
@@ -697,36 +724,73 @@ StructuredRescale[dat_List] := If[ArrayDepth[dat] == 1,
 Options[MapPlot] = Join[
   Options[Graphics],
   {ColorFunction -> Automatic,
-   ColorFunctionScaling -> False}];
-MapPlot[map_?MapQ, opts:OptionsPattern[]] := Graphics[
+   ColorFunctionScaling -> False,
+   Curvature -> Automatic}];
+MapPlot[map_?MapQ, opts:OptionsPattern[]] := With[
+  {V = Normal[VertexList[map]],
+   F = Normal[FaceList[map]],
+   Z = Normal[Field[map]],
+   cfn = Replace[
+     OptionValue[ColorFunction],
+     Automatic -> Function[If[!NumberQ[#], None, Blend[{Blue,Cyan,Gray,Yellow,Red},#]]]],
+   cfnsc = Replace[
+     OptionValue[ColorFunctionScaling],
+     {None|False -> Identity,
+      Ordering -> Function[
+        With[
+          {ord = Ordering[#]},
+          (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[#] - 1)]],
+      True|Automatic -> StructuredRescale}]},
   With[
-    {V = Normal[VertexList[map]],
-     F = Normal[FaceList[map]],
-     Z = Normal[Field[map]],
-     cfn = Replace[
-       OptionValue[ColorFunction],
-       Automatic -> Function[Blend[{Blue,Cyan,Gray,Yellow,Red},#]]],
-     cfnsc = Replace[
-       OptionValue[ColorFunctionScaling],
-       {None|False -> Identity,
-        Ordering -> Function[
-          With[
-            {ord = Ordering[#]},
-            (Normal[SparseArray[Thread[ord -> Range[Length[ord]]]]] - 1) / (Length[#] - 1)]],
-        True|Automatic -> StructuredRescale}]},
+    {ZZ = cfnsc[Z]},
     With[
-      {ZZ = cfnsc[Z]},
-      {EdgeForm[None],
-       If[!ListQ[F],
-         MapThread[
-           Function[{cfn[#1], Point[#2]}],
-           {ZZ, V}],
-         Map[
-           Function[Polygon[V[[#]], VertexColors -> Map[cfn, ZZ[[#]]]]],
-           F]]}]],
-  Sequence@@FilterRules[
-    {opts},
-    Except[ColorFunction|ColorFunctionScaling]]];
+      {plot = {
+         EdgeForm[None],
+         First@Last@Reap[
+           If[!ListQ[F],
+             MapThread[
+               Function[
+                 With[
+                   {clr = cfn[#1]},
+                   If[clr=!=None && clr=!=$Failed, Sow[{clr,Point[#2]}]]]],
+               {ZZ, V}],
+             Map[
+               Function[
+                 With[
+                   {clrs = cfn /@ ZZ[[#]]},
+                   If[Count[clrs, None|$Failed, {1}] < Length[#],
+                     Sow[
+                       Polygon[
+                         V[[#]], 
+                         VertexColors -> Replace[
+                           clrs,
+                           (None|$Failed) -> RGBColor[0.5,0.5,0.5,0],
+                           {1}]]]]]],
+              F]]]},
+       plotOpts = FilterRules[
+         {opts},
+         Except[ColorFunction|ColorFunctionScaling|Curvature]],
+       curv = Replace[
+         OptionValue[Curvature],
+         {c_List /; Length[c] == Length[Z] :> c,
+          Field :> Field[map],
+          m_?MapQ /; Length[Field[m]] == Length[Z] :> Curvature[m],
+          Automatic :> Curvature[map]}]},
+      With[
+        {curvPlot = If[ListQ[curv] && Length[curv] == Length[Z],
+           ListContourPlot[
+             MapThread[Append, {V,curv}],
+             ColorFunction -> (If[#<0, LightGray, Gray]&),
+             ColorFunctionScaling -> False,
+             Contours -> {0},
+             Epilog -> Join[plot, OptionValue[Epilog]],
+             ContourLines -> False,
+             Sequence@@FilterRules[
+               FilterRules[{opts}, Except[ColorFunction|ColorFunctionScaling]],
+               Alternatives @@ Part[Options[ListContourPlot], All, 1]],
+             Frame -> False],
+           None]},
+        If[curvPlot === None, Graphics[plot, plotOpts], curvPlot]]]]];
 
 (* #MapMeshPlot ***********************************************************************************)
 Options[MapMeshPlot] = Join[
@@ -2067,6 +2131,7 @@ VertexList[Rule[f_?FieldQ, s_?SurfaceQ]] := VertexList[s];
 VertexFilter[Rule[f_?FieldQ, s_?SurfaceQ]] := VertexFilter[s];
 FaceFilter[Rule[f_?FieldQ, s_?SurfaceQ]] := FaceFilter[s];
 Field[Rule[f_?FieldQ, s_?SurfaceQ]] := Field[f];
+Curvature[Rule[f_?FieldQ, s_?SurfaceQ]] := Curvature[s];
 FaceList[Rule[f_?FieldQ, s_?SurfaceQ]] := FaceList[s];
 Polygons[Rule[f_?FieldQ, s_?SurfaceQ]] := Polygons[s];
 SurfaceQ[Rule[f_?FieldQ, s_?SurfaceQ]] := True;
@@ -2077,9 +2142,11 @@ VertexList[Rule[f_List, s_?SurfaceQ]] := VertexList[s];
 VertexFilter[Rule[f_List, s_?SurfaceQ]] := VertexFilter[s];
 FaceFilter[Rule[f_List, s_?SurfaceQ]] := FaceFilter[s];
 Field[Rule[f_List, s_?SurfaceQ]] := f;
+Curvature[Rule[f_List, s_?SurfaceQ]] := Curvature[s];
 FaceList[Rule[f_List, s_?SurfaceQ]] := FaceList[s];
 Polygons[Rule[f_List, s_?SurfaceQ]] := Polygons[s];
 SurfaceQ[Rule[f_List, s_?SurfaceQ]] := True;
+SurfaceQ[Rule[f_?FieldQ, s_?SurfaceQ]] := True;
 SurfaceName[Rule[f_List, s_?SurfaceQ]] := SurfaceName[s];
 
 Radius[Rule[f_?FieldQ, m_?MapQ]] := Radius[m];
@@ -2095,6 +2162,7 @@ DomainIndices[Rule[f_?FieldQ, m_?MapQ]] := DomainIndices[m];
 FaceDomainIndices[Rule[f_?FieldQ, m_?MapQ]] := FaceDomainIndices[m];
 Domain[Rule[f_?FieldQ, m_?MapQ]] := Domain[m];
 Field[Rule[f_?FieldQ, m_?MapQ]] := Part[Field[f], DomainIndices[m]];
+Curvature[Rule[f_?FieldQ, m_?MapQ]] := Curvature[m];
 MapQ[Rule[f_?FieldQ, m_?MapQ]] := True;
 MapName[Rule[f_?FieldQ, m_?MapQ]] := MapName[m];
 VertexFilter[Rule[f_?FieldQ, m_?MapQ]] := VertexFilter[m];
@@ -2120,8 +2188,10 @@ DomainIndices[Rule[f_List, m_?MapQ]] := DomainIndices[m];
 FaceDomainIndices[Rule[f_List, m_?MapQ]] := FaceDomainIndices[m];
 Domain[Rule[f_List, m_?MapQ]] := Domain[m];
 Field[Rule[f_List, m_?MapQ]] /; Length[f] == Length[VertexList[m]] := f;
-Field[Rule[f_List, m_?MapQ]] /; 
-  (Length[f] == Length[VertexList[ProjectedSurface[m]]]) := f[[DomainIndices[m]]];
+Field[Rule[f_List, m_?MapQ]] /; (
+  Length[f] == Length[VertexList[ProjectedSurface[m]]]
+ ) := f[[DomainIndices[m]]];
+Curvature[Rule[f_List, m_?MapQ]] := Curvature[m];
 FaceList[Rule[f_List, m_?MapQ]] := FaceList[m];
 MapQ[Rule[f_List, m_?MapQ]] := True;
 MapName[Rule[f_List, m_?MapQ]] := MapName[m];
@@ -2266,71 +2336,77 @@ MapTangles[map_?MapQ, X_] := With[
 MapTangles[map_?MapQ] := MapTangles[map, VertexList[map]];
 
 (* #MapUntangle ***********************************************************************************)
-MapUntangle[map_?MapQ, Xtangled_, max_: 50] := With[
+Options[MapUntangle] = {Hold -> None};
+MapUntangle[map_?MapQ, Xtangled_, max_: 50, OptionsPattern[]] := With[
   {P = CorticalPotentialField[
      map,
      AnglesConstant -> 0,
      EdgesConstant -> 0,
      CentroidConstant -> Automatic],
+   hold = Replace[OptionValue[Hold], None->{}],
    nei = NeighborhoodList[map]},
   NestWhile[
     Function[{X0},
       With[
         {tangles = With[
            {t0 = MapTangles[map, X0]},
-           Union[Flatten[{t0, nei[[#]] & /@ t0}]]]},
+           Complement[Union[Flatten[{t0, nei[[#]] & /@ t0}]], hold]]},
         Block[{X, f, g},
           f[x_List] := P[ReplacePart[X0, Thread[tangles -> x]], tangles];
-         g[x_List] := Gradient[P, ReplacePart[X0, Thread[tangles -> x]], tangles];
-         ReplacePart[
-           X0,
-           Thread[
-             tangles -> Quiet[
-               First@FindArgMin[
-                 f[X],
-                 {X, X0[[tangles]]},
-                 Gradient :> g[X],
-                 Method -> {"QuasiNewton",
-                   "StepControl" -> {"LineSearch", "CurvatureFactor" -> 1.0}},
-                 AccuracyGoal -> 6,
-                 MaxIterations -> 100],
-               {FindArgMin::cvmit, FindArgMin::lstol}]]]]]],
+          g[x_List] := Gradient[P, ReplacePart[X0, Thread[tangles -> x]], tangles];
+          ReplacePart[
+            X0,
+            Thread[
+              tangles -> Quiet[
+                First@FindArgMin[
+                  f[X],
+                  {X, X0[[tangles]]},
+                  Gradient :> g[X],
+                  Method -> {"QuasiNewton",
+                    "StepControl" -> {"LineSearch", "CurvatureFactor" -> 1.0}},
+                  AccuracyGoal -> 6,
+                  MaxIterations -> 100],
+                {FindArgMin::cvmit, FindArgMin::lstol}]]]]]],
     Xtangled,
     MapTangledQ[map, #] &,
     1,
     max]];
 
 (* #MapRegister ***********************************************************************************)
-Options[MapRegister] = Append[
+Options[MapRegister] = Join[
    FilterRules[Options[FindArgMin], Except[StepMonitor]],
-   StepMonitor -> Print];
-MapRegister[map_?MapQ, P_, opts : OptionsPattern[]] := Block[{x, f, g},
-  Module[
-    {progress = {},
-     PE0 = P[VertexList[map]],
-     butHull = Complement[Range[Length[VertexList[map]]], MapHull[map]],
-     X0 = VertexList[map]},
-    If[OptionValue[StepMonitor] === Print,
-      Print[Dynamic[MapRegistrationProgressPlot[progress]]]];
-    f[x_List] := P[ReplacePart[X0, Thread[butHull -> x]], butHull];
-    g[x_List] := Gradient[P, ReplacePart[X0, Thread[butHull -> x]], butHull];
-    With[
-      {Xtangled = ReplacePart[
-         X0,
-         Thread[
-           butHull -> First@FindArgMin[
-             f[x],
-             {x, X0[[butHull]]},
-             Gradient :> g[x],
-             opts,
-             StepMonitor :> AppendTo[
-               progress,
-               {Sqrt[Mean[Total[Transpose[(x - X0[[butHull]])^2]]]], f[x]/PE0*100.0}]]]],
-       dup = SurfaceProjection[ProjectedSurface[map], Duplicate -> map]},
+   {StepMonitor -> Print,
+    Hold -> None}];
+MapRegister[map_?MapQ, P_, opts : OptionsPattern[]] := With[
+  {hold = Replace[OptionValue[Hold], None -> {}]},
+  Block[
+    {x, f, g},
+    Module[
+      {progress = {},
+       PE0 = P[VertexList[map]],
+       butHull = Complement[Range[Length[VertexList[map]]], Union@Join[MapHull[map], hold]],
+       X0 = VertexList[map]},
+      If[OptionValue[StepMonitor] === Print,
+        Print[Dynamic[MapRegistrationProgressPlot[progress]]]];
+      f[x_List] := P[ReplacePart[X0, Thread[butHull -> x]], butHull];
+      g[x_List] := Gradient[P, ReplacePart[X0, Thread[butHull -> x]], butHull];
       With[
-        {X = MapUntangle[map, Xtangled, 10]},
-        Evaluate[dup] /: VertexList[dup] = X;
-        Field[map] -> dup]]]];
+        {Xtangled = ReplacePart[
+           X0,
+           Thread[
+             butHull -> First@FindArgMin[
+               f[x],
+               {x, X0[[butHull]]},
+               Gradient :> g[x],
+               Evaluate[Sequence@@FilterRules[{opts}, Options[FindArgMin][[All,1]]]],
+               StepMonitor :> AppendTo[
+                 progress,
+                 {Sqrt[Mean[Total[Transpose[(x - X0[[butHull]])^2]]]], f[x]/PE0*100.0}]]]],
+         dup = SurfaceProjection[ProjectedSurface[map], Duplicate -> map]},
+        With[
+          {X = MapUntangle[map, Xtangled, 10]},
+          Evaluate[dup] /: VertexList[dup] = X;
+          Field[map] -> dup]]]]];
 
 (* #MapRegistrationProgressPlot *******************************************************************)
 MapRegistrationProgressPlot[progress_List] := If[Length[progress] == 0,
@@ -2410,7 +2486,6 @@ ColorCortex[instructions___] := Block[{tmp},
       ord,
       Hold[body__] :> Hold[Module[{tmp}, Which[body]]]]]];
 
-Curvature = Curvature;
 CorticalColor[Curvature] = Function[If[# < -0.02, GrayLevel[0.55], GrayLevel[0.2]]];
 
 (* We have a sneaky way of setting cortical colors that allows it to be still protected. *)
