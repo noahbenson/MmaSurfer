@@ -417,7 +417,7 @@ FSAverageSymV1Hull := With[
          {ids = Map[
             Rest[SortBy[#, Z[[#]] &]] &,
             Select[
-              Faces[FSAverageSymSphereSurface],
+              FaceList[FSAverageSymSphereSurface],
               Total[Z[[#]]] == 2 &]]},
          With[
            {disp = Dispatch[
@@ -885,11 +885,37 @@ With[
    eccenColors = Join[
     {Black, Purple, Red, Yellow, Green},
     Table[Blend[{Green, Cyan}, (u - 20.0)/20.0], {u, 25, 40, 5}],
-    Table[Blend[{Cyan, White}, (u - 40.0)/50.0], {u, 45, 90, 5}]]},
-  CorticalColor[{PolarAngle,LH}] = {{0,180}, angleColors};
-  CorticalColor[{PolarAngle,RH}] = {{-180,0}, Reverse[angleColors]};
+    Table[Blend[{Cyan, White}, (u - 40.0)/50.0], {u, 45, 90, 5}]],
+   options = {Hemisphere -> Automatic, Opacity -> 1}},
   CorticalColor[PolarAngle] = {{-180,180}, Join[Reverse[angleColors], Rest[angleColors]]};
-  CorticalColor[Eccentricity] = {{0,90}, eccenColors};];
+  CorticalColor[Eccentricity] = {{0,90}, eccenColors};
+  CorticalColor[{type:(PolarAngle|Eccentricity), opts___}] := Check[
+    With[
+      {hemi = Replace[Hemisphere, Join[{opts}, options]],
+       opac = Replace[Opacity, Join[{opts}, options]]},
+      If[!NumberQ[opac] || !TrueQ[0 <= opac <= 1],
+        Message[CorticalColor::badarg, "Opacity must be a number between 0 and 1"]];
+      With[
+        {range = If[type === PolarAngle,
+           Replace[
+             hemi,
+             {(Automatic|Full) -> {-180, 180},
+              LH -> {0, 180},
+              RH -> {-180, 0},
+              _ :> Message[
+                CorticalColor::badarg, 
+                "Hemisphere option must be LH, RH, or Automatic"]}],
+           {0,90}],
+         colors = If[type === PolarAngle,
+           Replace[
+             hemi,
+             {(Automatic|Full) -> Join[Reverse[angleColors], angleColors],
+              LH -> angleColors,
+              RH -> Reverse[angleColors]}],
+           eccenColors]},
+        {range, If[opac < 1, Opacity[opac, #]& /@ colors, colors]}]],
+    $Failed];
+];
 
 PolarAngleLegend[hemi : (LH|RH), opts___Rule] := DensityPlot[
   If[hemi === LH, ArcTan[x, y], ArcTan[90 - x, y]],
