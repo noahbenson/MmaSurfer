@@ -30,7 +30,7 @@ Protect[Frames, ImageBufferType, DegreesOfFreedom, VOXToRASMatrix, Volumes, Surf
 
 ImportMGH::usage = "ImportMGH[filename, options...] is identical to Import[filename, \"MGH\", options].";
 ImportSurface::usage = "ImportSurface[filename, options...] is identical to Import[filename, \"FreeSurferSurface\", options].";
-ImportCurc::usage = "ImportCurv[filename, options...] is identical to Import[filename, \"FreeSurferCurv\", options].";
+ImportCurv::usage = "ImportCurv[filename, options...] is identical to Import[filename, \"FreeSurferCurv\", options].";
 ImportWeights::usage = "ImportWeights[filename, options...] is identical to Import[filename, \"FreeSurferWeights\", options].";
 ImportAnnotation::usage = "ImportAnnotation[filename, options...] is identical to Import[filename, \"FreeSurferAnnotation\", options].";
 ImportLabel::usage = "ImportLabel[filename, options...] is identical to Import[filename, \"FreeSurferLabel\", options].";
