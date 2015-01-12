@@ -524,8 +524,8 @@ Protect[Field];
 
 
 (* Importing surface files ************************************************************************)
-Unprotect[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
-ClearAll[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
+Unprotect[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaceList, ImportSurfaceData, ImportSurfaceObject];
+ClearAll[ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaceList, ImportSurfaceData, ImportSurfaceObject];
 $SurfaceFileTrianglesID = -2;
 ImportNLNLTerminatedString[stream_, opts___] := Catch[
   Apply[
@@ -590,7 +590,7 @@ ImportSurfaceVertexList[stream_, opts__] := "VertexList" -> Block[
              Throw[$Failed])},
           {1}],
         3]]]];
-ImportSurfaceFaces[stream_, opts__] := "Faces" -> Block[
+ImportSurfaceFaceList[stream_, opts__] := "FaceList" -> Block[
   {$ByteOrdering = 1},
   Catch[
     With[
@@ -636,8 +636,8 @@ ImportSurfaceData[stream_, opts___] := "Data" -> Catch[
      "VertexList" -> Replace[
        "VertexList" /. ImportSurfaceVertexList[stream, "Header" -> header, opts],
        $Failed :> Throw[$Failed]],
-     "Faces" -> Replace[
-       "Faces" /. ImportSurfaceFaces[stream, "Header" -> header, opts],
+     "FaceList" -> Replace[
+       "FaceList" /. ImportSurfaceFaceList[stream, "Header" -> header, opts],
        $Failed :> Throw[$Failed]]}]];
 ImportSurfaceObject[stream_, opts___] := Catch[
   With[
@@ -648,19 +648,19 @@ ImportSurfaceObject[stream_, opts___] := Catch[
       {sym = Surface[
          "VertexList" /. dat,
          Field -> (Field /. Append[{opts}, Field -> None]),
-         Faces -> ("Faces" /. dat)]},
+         FaceList -> ("FaceList" /. dat)]},
       If[sym === $Failed, Throw[$Failed]];
       sym /: HeaderComment[sym] = ("CreatorString" /. ("Header" /. dat));
       sym /: ImportedData[sym] = dat;
       sym]]];
 ImportSurface[filename_String, opts___] := Import[filename, "FreeSurferSurface", opts];
-Protect[ImportSurface, ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaces, ImportSurfaceData, ImportSurfaceObject];
+Protect[ImportSurface, ImportSurfaceHeader, ImportSurfaceVertexList, ImportSurfaceFaceList, ImportSurfaceData, ImportSurfaceObject];
 (* Register the importer *)
 ImportExport`RegisterImport[
   "FreeSurferSurface",
   {"Header" :> ImportSurfaceHeader,
    "VertexList" :> ImportSurfaceVertexList,
-   "Faces" :> ImportSurfaceFaces,
+   "FaceList" :> ImportSurfaceFaceList,
    "Data" :> ImportSurfaceData,
    ImportSurfaceObject},
   "FunctionChannels" -> {"Streams"},
@@ -672,31 +672,30 @@ ExportSurface[filename_, data_, opts___] := Block[
   (* Make sure we have all the data we need... *)
   With[
     {dat = Which[
-       SurfaceQ[data] && ValueQ[ImportedData[data]], 
-       ImportedData[data],
+       SurfaceQ[data] && ValueQ[ImportedData[data]], ImportedData[data],
        3 == Length@Union[
          Cases[
            data,
-           (Rule|RuleDelayed)[("Header"|"VertexList"|"Faces"),_], {1}
+           (Rule|RuleDelayed)[("Header"|"VertexList"|"FaceList"),_], {1}
           ][[All, 1]]],
-       dat,
+       data,
        True,
        (Message[
           ExportSurface::badfmt,
           "Export data must be a surface object or a list with " <>
-           "\"Header\", \"Faces\", and \"VertexList\" rules"];
+           "\"Header\", \"FaceList\", and \"VertexList\" rules"];
         $Failed)],
      outtype = Replace["OutputFormat", Append[Flatten[{opts}], "OutputFormat" -> "Real32"]],
      createdString = Replace[
        "CreatedString",
-       Append[Flatten[{opts}], "CreatedString" -> "Created by fmrilib for Mathematica"]],
+       Append[Flatten[{opts}], "CreatedString" -> "Created by MmaSurfer for Mathematica"]],
      fl = OpenWrite[filename, BinaryFormat -> True]},
     If[fl === $Failed,
       $Failed,
       With[
         {header = "Header" /. dat,
          V = "VertexList" /. dat,
-         F = "Face" /. dat},
+         F = ("FaceList" /. dat) - 1},
         With[
           {res = Check[
              BinaryWrite[fl, $SurfaceFileTrianglesID, "Integer24"];
@@ -707,7 +706,7 @@ ExportSurface[filename_, data_, opts___] := Block[
              BinaryWrite[fl, Length[V], "Integer32"];
              BinaryWrite[fl, Length[F], "Integer32"];
              BinaryWrite[fl, Flatten[V], "Real32"];
-             BinaryWrite[fl, Flatten[f], "Integer32"],
+             BinaryWrite[fl, Flatten[F], "Integer32"],
              $Failed]},
         Close[fl];
         If[res === $Failed, $Failed, filename]]]]]];
@@ -1632,7 +1631,7 @@ FSAverageSymInvOriginalSurface := With[
       {surf = FSAverageSymOriginalSurface},
       Surface[
         Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
-        Faces -> Faces[surf]]],
+        FaceList -> FaceList[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvOriginalSurface = res]];
 FSAverageSymInvPialSurface := With[
@@ -1641,7 +1640,7 @@ FSAverageSymInvPialSurface := With[
       {surf = FSAverageSymPialSurface},
       Surface[
         Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
-        Faces -> Faces[surf]]],
+        FaceList -> FaceList[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvPialSurface = res]];
 FSAverageSymInvInflatedSurface := With[
@@ -1650,7 +1649,7 @@ FSAverageSymInvInflatedSurface := With[
       {surf = FSAverageSymInflatedSurface},
       Surface[
         Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
-        Faces -> Faces[surf]]],
+        FaceList -> FaceList[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvInflatedSurface = res]];
 FSAverageSymInvSphereSurface := With[
@@ -1659,7 +1658,7 @@ FSAverageSymInvSphereSurface := With[
       {surf = FSAverageSymSphereSurface},
       Surface[
         Map[{-#[[1]], #[[2]], #[[3]]}&, VertexList[surf]],
-        Faces -> Faces[surf]]],
+        FaceList -> FaceList[surf]]],
     $Failed]},
   If[res === $Failed, $Failed, FSAverageSymInvSphereSurface = res]];
 FSAverageSymCurvature := Check[
